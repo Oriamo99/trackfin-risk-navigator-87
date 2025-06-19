@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Coins, AlertCircle, Upload, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,10 +31,13 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     transactionAmount: '',
     paymentMethod: '',
     justificationDocuments: '',
-    additionalNotes: ''
+    additionalNotes: '',
+    bankLoan: '',
+    lenderBank: ''
   });
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [verificationFiles, setVerificationFiles] = useState<File[]>([]);
 
   const questions = [
     {
@@ -106,6 +109,18 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     return 'Élevé';
   };
 
+  const formatAmount = (value: string) => {
+    // Remove all non-digit characters
+    const numericValue = value.replace(/\D/g, '');
+    // Format with dots as thousands separators
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const handleAmountChange = (value: string) => {
+    const formattedValue = formatAmount(value);
+    setFundData(prev => ({ ...prev, transactionAmount: formattedValue }));
+  };
+
   useEffect(() => {
     const score = calculateScore();
     const level = getRiskLevel(score);
@@ -125,12 +140,38 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     setUploadedFiles(prev => [...prev, ...files]);
   };
 
+  const handleVerificationFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setVerificationFiles(prev => [...prev, ...files]);
+  };
+
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const removeVerificationFile = (index: number) => {
+    setVerificationFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const score = calculateScore();
   const riskLevel = getRiskLevel(score);
+
+  const paymentMethods = [
+    { value: 'cheque', label: 'Chèque' },
+    { value: 'virement', label: 'Virement bancaire' },
+    { value: 'especes', label: 'Espèces' },
+    { value: 'autre', label: 'Autre' }
+  ];
+
+  const fundOrigins = [
+    { value: 'salaire', label: 'Salaire' },
+    { value: 'heritage', label: 'Héritage' },
+    { value: 'vente_bien', label: 'Vente de bien' },
+    { value: 'epargne', label: 'Épargne' },
+    { value: 'investissement', label: 'Investissement' },
+    { value: 'pret_bancaire', label: 'Prêt bancaire' },
+    { value: 'autre', label: 'Autre' }
+  ];
 
   return (
     <div className="space-y-6">
@@ -149,33 +190,72 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="transactionAmount">Montant de la transaction</Label>
+                <Label htmlFor="transactionAmount">Montant de la transaction (€)</Label>
                 <Input
                   id="transactionAmount"
                   value={fundData.transactionAmount}
-                  onChange={(e) => handleInputChange('transactionAmount', e.target.value)}
-                  placeholder="Montant en euros"
+                  onChange={(e) => handleAmountChange(e.target.value)}
+                  placeholder="Exemple: 250.000"
                 />
               </div>
               <div>
                 <Label htmlFor="paymentMethod">Mode de paiement</Label>
-                <Input
-                  id="paymentMethod"
-                  value={fundData.paymentMethod}
-                  onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
-                  placeholder="Chèque, virement, espèces..."
-                />
+                <Select value={fundData.paymentMethod} onValueChange={(value) => handleInputChange('paymentMethod', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner le mode de paiement" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((method) => (
+                      <SelectItem key={method.value} value={method.value}>
+                        {method.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
             <div>
-              <Label htmlFor="originDescription">Description de l'origine des fonds</Label>
-              <Textarea
-                id="originDescription"
-                value={fundData.originDescription}
-                onChange={(e) => handleInputChange('originDescription', e.target.value)}
-                placeholder="Salaire, héritage, vente de bien..."
-              />
+              <Label htmlFor="originDescription">Origine des fonds</Label>
+              <Select value={fundData.originDescription} onValueChange={(value) => handleInputChange('originDescription', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner l'origine des fonds" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fundOrigins.map((origin) => (
+                    <SelectItem key={origin.value} value={origin.value}>
+                      {origin.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Section Prêt bancaire */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="bankLoan">Présence d'un prêt bancaire</Label>
+                <Select value={fundData.bankLoan} onValueChange={(value) => handleInputChange('bankLoan', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Prêt bancaire ?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="oui">Oui</SelectItem>
+                    <SelectItem value="non">Non</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {fundData.bankLoan === 'oui' && (
+                <div>
+                  <Label htmlFor="lenderBank">Banque prêteuse</Label>
+                  <Input
+                    id="lenderBank"
+                    value={fundData.lenderBank}
+                    onChange={(e) => handleInputChange('lenderBank', e.target.value)}
+                    placeholder="Nom de la banque prêteuse"
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -268,6 +348,35 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                   Accéder
                 </a>
               </Button>
+            </div>
+
+            {/* Zone de téléchargement pour captures d'écran */}
+            <div className="p-4 border rounded-lg bg-blue-50">
+              <h4 className="font-medium mb-2">Captures d'écran des vérifications</h4>
+              <p className="text-sm text-gray-600 mb-3">Joindre les captures d'écran des vérifications effectuées sur les sites officiels</p>
+              <Input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleVerificationFileUpload}
+                className="mb-2"
+              />
+              {verificationFiles.length > 0 && (
+                <div className="space-y-2 mt-3">
+                  {verificationFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-sm">{file.name}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeVerificationFile(index)}
+                      >
+                        Supprimer
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
