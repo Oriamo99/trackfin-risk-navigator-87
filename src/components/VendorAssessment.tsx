@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, AlertCircle, User, Building2 } from "lucide-react";
+import { Users, AlertCircle, User, Building2, Upload, ExternalLink } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 
 interface VendorAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -17,7 +18,12 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
   const [checks, setChecks] = useState({
     identityVerified: false,
     sanctionsList: false,
-    highRiskCountry: false
+    highRiskCountry: false,
+    unreliableInfo: false,
+    actingForThird: false,
+    atypicalOperation: false,
+    knownInfractions: false,
+    noClientInfo: false
   });
 
   const [vendorData, setVendorData] = useState({
@@ -34,7 +40,8 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
       phone: '',
       email: '',
       idDocument: '',
-      idNumber: ''
+      idNumber: '',
+      countryOrigin: ''
     },
     // Personne morale
     legalEntity: {
@@ -47,11 +54,13 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
       phone: '',
       email: '',
       representativeName: '',
-      representativePosition: ''
+      representativePosition: '',
+      countryOrigin: ''
     }
   });
 
   const [personType, setPersonType] = useState<'physical' | 'legal'>('physical');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const questions = [
     {
@@ -71,6 +80,36 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
       label: 'Pays à haut risque',
       description: 'Vendeur originaire d\'un pays à haut risque',
       risk: 'Modéré'
+    },
+    {
+      id: 'unreliableInfo',
+      label: 'Renseignements incohérents ou non fiables',
+      description: 'Les informations fournies sont contradictoires ou douteuses',
+      risk: 'Élevé'
+    },
+    {
+      id: 'actingForThird',
+      label: 'Client agissant pour un tiers',
+      description: 'Le vendeur agit pour le compte d\'une tierce personne',
+      risk: 'Modéré'
+    },
+    {
+      id: 'atypicalOperation',
+      label: 'Caractéristiques atypiques de l\'opération',
+      description: 'Complexité, prix ou rotation atypique de l\'opération',
+      risk: 'Élevé'
+    },
+    {
+      id: 'knownInfractions',
+      label: 'Vendeur connu pour infractions',
+      description: 'Le vendeur est connu pour diverses infractions',
+      risk: 'Élevé'
+    },
+    {
+      id: 'noClientInfo',
+      label: 'Absence de renseignements du vendeur',
+      description: 'Le vendeur ne fournit aucun renseignement demandé',
+      risk: 'Élevé'
     }
   ];
 
@@ -79,12 +118,17 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     if (!checks.identityVerified) score += 1;
     if (checks.sanctionsList) score += 3;
     if (checks.highRiskCountry) score += 2;
+    if (checks.unreliableInfo) score += 3;
+    if (checks.actingForThird) score += 2;
+    if (checks.atypicalOperation) score += 3;
+    if (checks.knownInfractions) score += 3;
+    if (checks.noClientInfo) score += 3;
     return score;
   };
 
   const getRiskLevel = (score: number) => {
     if (score === 0) return 'Faible';
-    if (score <= 2) return 'Modéré';
+    if (score <= 5) return 'Modéré';
     return 'Élevé';
   };
 
@@ -106,6 +150,15 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
         [field]: value
       }
     }));
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const score = calculateScore();
@@ -207,12 +260,49 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                       />
                     </div>
                     <div>
+                      <Label htmlFor="countryOrigin">Pays d'origine</Label>
+                      <Input
+                        id="countryOrigin"
+                        value={vendorData.physicalPerson.countryOrigin}
+                        onChange={(e) => handleInputChange('physicalPerson', 'countryOrigin', e.target.value)}
+                        placeholder="Pays d'origine"
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="phone">Téléphone</Label>
                       <Input
                         id="phone"
                         value={vendorData.physicalPerson.phone}
                         onChange={(e) => handleInputChange('physicalPerson', 'phone', e.target.value)}
                         placeholder="Numéro de téléphone"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={vendorData.physicalPerson.email}
+                        onChange={(e) => handleInputChange('physicalPerson', 'email', e.target.value)}
+                        placeholder="Adresse email"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="idDocument">Type de pièce d'identité</Label>
+                      <Input
+                        id="idDocument"
+                        value={vendorData.physicalPerson.idDocument}
+                        onChange={(e) => handleInputChange('physicalPerson', 'idDocument', e.target.value)}
+                        placeholder="CNI, Passeport, etc."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="idNumber">Numéro de pièce d'identité</Label>
+                      <Input
+                        id="idNumber"
+                        value={vendorData.physicalPerson.idNumber}
+                        onChange={(e) => handleInputChange('physicalPerson', 'idNumber', e.target.value)}
+                        placeholder="Numéro de la pièce d'identité"
                       />
                     </div>
                   </div>
@@ -286,12 +376,31 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                       />
                     </div>
                     <div>
+                      <Label htmlFor="companyCountryOrigin">Pays d'origine</Label>
+                      <Input
+                        id="companyCountryOrigin"
+                        value={vendorData.legalEntity.countryOrigin}
+                        onChange={(e) => handleInputChange('legalEntity', 'countryOrigin', e.target.value)}
+                        placeholder="Pays d'origine de l'entreprise"
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="companyPhone">Téléphone</Label>
                       <Input
                         id="companyPhone"
                         value={vendorData.legalEntity.phone}
                         onChange={(e) => handleInputChange('legalEntity', 'phone', e.target.value)}
                         placeholder="Numéro de téléphone"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="companyEmail">Email</Label>
+                      <Input
+                        id="companyEmail"
+                        type="email"
+                        value={vendorData.legalEntity.email}
+                        onChange={(e) => handleInputChange('legalEntity', 'email', e.target.value)}
+                        placeholder="Adresse email"
                       />
                     </div>
                   </div>
@@ -347,6 +456,79 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                 </CollapsibleContent>
               </Collapsible>
             )}
+
+            {/* Zone de téléchargement de pièces d'identité */}
+            <div>
+              <Label htmlFor="identityUpload">Pièces d'identité et documents</Label>
+              <div className="mt-2">
+                <Input
+                  id="identityUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileUpload}
+                  className="mb-2"
+                />
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Liens vers les sites officiels */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            Vérifications Officielles
+          </CardTitle>
+          <CardDescription>
+            Liens vers les sites officiels pour les vérifications
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
+                <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Accéder
+                </a>
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
+                <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Accéder
+                </a>
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -404,7 +586,7 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                 <span className="font-medium">Score de risque vendeur:</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-2xl font-bold">{score}/6</span>
+                <span className="text-2xl font-bold">{score}/20</span>
                 <span className={`px-3 py-1 rounded-full font-medium ${
                   riskLevel === 'Faible' ? 'bg-green-100 text-green-800' :
                   riskLevel === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :

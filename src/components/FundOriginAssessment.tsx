@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Coins, AlertCircle, CreditCard, Banknote, Building } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Coins, AlertCircle, Upload, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FundOriginAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -15,64 +15,94 @@ interface FundOriginAssessmentProps {
 
 const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   const [checks, setChecks] = useState({
-    sourceDocumented: false,
+    legitimateSource: false,
+    unusualPattern: false,
     cashTransaction: false,
-    unexpectedSource: false
+    unreliableInfo: false,
+    actingForThird: false,
+    atypicalOperation: false,
+    knownInfractions: false,
+    noClientInfo: false
   });
 
   const [fundData, setFundData] = useState({
-    propertyAddress: '',
-    propertyCity: '',
-    propertyPostalCode: '',
-    operationType: 'vente', // vente ou location
-    operationAmount: '',
+    originDescription: '',
+    bankDetails: '',
+    transactionAmount: '',
     paymentMethod: '',
-    bankDetails: {
-      bankName: '',
-      accountHolder: '',
-      iban: '',
-      swiftCode: ''
-    },
-    fundOrigin: {
-      source: '',
-      description: '',
-      justification: '',
-      previousTransactions: ''
-    }
+    justificationDocuments: '',
+    additionalNotes: ''
   });
+
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const questions = [
     {
-      id: 'sourceDocumented',
-      label: 'Source des fonds documentée',
-      description: 'Justificatifs de l\'origine des fonds fournis',
+      id: 'legitimateSource',
+      label: 'Source légitime des fonds',
+      description: 'Les fonds proviennent d\'une source identifiable et légitime',
       risk: 'Faible'
+    },
+    {
+      id: 'unusualPattern',
+      label: 'Schéma de transaction inhabituel',
+      description: 'Les transactions présentent des schémas inhabituels ou suspects',
+      risk: 'Élevé'
     },
     {
       id: 'cashTransaction',
       label: 'Transaction en espèces importante',
-      description: 'Montant élevé payé en espèces',
+      description: 'Montant important payé en espèces',
+      risk: 'Modéré'
+    },
+    {
+      id: 'unreliableInfo',
+      label: 'Renseignements incohérents ou non fiables',
+      description: 'Les informations fournies sont contradictoires ou douteuses',
       risk: 'Élevé'
     },
     {
-      id: 'unexpectedSource',
-      label: 'Source inattendue des fonds',
-      description: 'Origine des fonds incompatible avec le profil',
+      id: 'actingForThird',
+      label: 'Client agissant pour un tiers',
+      description: 'Le client agit pour le compte d\'une tierce personne',
       risk: 'Modéré'
+    },
+    {
+      id: 'atypicalOperation',
+      label: 'Caractéristiques atypiques de l\'opération',
+      description: 'Complexité, prix ou rotation atypique de l\'opération',
+      risk: 'Élevé'
+    },
+    {
+      id: 'knownInfractions',
+      label: 'Client connu pour infractions',
+      description: 'Le client est connu pour diverses infractions',
+      risk: 'Élevé'
+    },
+    {
+      id: 'noClientInfo',
+      label: 'Absence de renseignements du client',
+      description: 'Le client ne fournit aucun renseignement demandé',
+      risk: 'Élevé'
     }
   ];
 
   const calculateScore = () => {
     let score = 0;
-    if (!checks.sourceDocumented) score += 2;
-    if (checks.cashTransaction) score += 3;
-    if (checks.unexpectedSource) score += 1;
+    if (!checks.legitimateSource) score += 1;
+    if (checks.unusualPattern) score += 3;
+    if (checks.cashTransaction) score += 2;
+    if (checks.unreliableInfo) score += 3;
+    if (checks.actingForThird) score += 2;
+    if (checks.atypicalOperation) score += 3;
+    if (checks.knownInfractions) score += 3;
+    if (checks.noClientInfo) score += 3;
     return score;
   };
 
   const getRiskLevel = (score: number) => {
     if (score === 0) return 'Faible';
-    if (score <= 2) return 'Modéré';
+    if (score <= 5) return 'Modéré';
     return 'Élevé';
   };
 
@@ -86,18 +116,17 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     setChecks(prev => ({ ...prev, [id]: checked }));
   };
 
-  const handleInputChange = (section: string, field: string, value: string) => {
-    if (section === 'main') {
-      setFundData(prev => ({ ...prev, [field]: value }));
-    } else {
-      setFundData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section as keyof typeof prev],
-          [field]: value
-        }
-      }));
-    }
+  const handleInputChange = (field: string, value: string) => {
+    setFundData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const score = calculateScore();
@@ -105,206 +134,140 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Informations sur le bien et l'opération */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Adresse du Bien et Nature de l'Opération
-          </CardTitle>
-          <CardDescription>
-            Détails sur le bien immobilier et le type d'opération
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="propertyAddress">Adresse du bien</Label>
-              <Textarea
-                id="propertyAddress"
-                value={fundData.propertyAddress}
-                onChange={(e) => handleInputChange('main', 'propertyAddress', e.target.value)}
-                placeholder="Adresse complète du bien immobilier"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="propertyCity">Ville</Label>
-                <Input
-                  id="propertyCity"
-                  value={fundData.propertyCity}
-                  onChange={(e) => handleInputChange('main', 'propertyCity', e.target.value)}
-                  placeholder="Ville"
-                />
-              </div>
-              <div>
-                <Label htmlFor="propertyPostalCode">Code postal</Label>
-                <Input
-                  id="propertyPostalCode"
-                  value={fundData.propertyPostalCode}
-                  onChange={(e) => handleInputChange('main', 'propertyPostalCode', e.target.value)}
-                  placeholder="Code postal"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="operationType">Nature de l'opération</Label>
-                <div className="flex gap-4 mt-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="vente" 
-                      checked={fundData.operationType === 'vente'}
-                      onCheckedChange={() => handleInputChange('main', 'operationType', 'vente')}
-                    />
-                    <Label htmlFor="vente">Vente</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="location" 
-                      checked={fundData.operationType === 'location'}
-                      onCheckedChange={() => handleInputChange('main', 'operationType', 'location')}
-                    />
-                    <Label htmlFor="location">Location</Label>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="operationAmount">Montant de l'opération (€)</Label>
-                <Input
-                  id="operationAmount"
-                  type="number"
-                  value={fundData.operationAmount}
-                  onChange={(e) => handleInputChange('main', 'operationAmount', e.target.value)}
-                  placeholder="Montant en euros"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Informations bancaires et paiement */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Modalités de Paiement
-          </CardTitle>
-          <CardDescription>
-            Détails sur les moyens de paiement et informations bancaires
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="paymentMethod">Moyen de paiement</Label>
-              <Input
-                id="paymentMethod"
-                value={fundData.paymentMethod}
-                onChange={(e) => handleInputChange('main', 'paymentMethod', e.target.value)}
-                placeholder="Virement, chèque, espèces, etc."
-              />
-            </div>
-            
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center gap-2 font-medium text-left w-full">
-                <Banknote className="h-4 w-4" />
-                Informations bancaires
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="bankName">Nom de la banque</Label>
-                    <Input
-                      id="bankName"
-                      value={fundData.bankDetails.bankName}
-                      onChange={(e) => handleInputChange('bankDetails', 'bankName', e.target.value)}
-                      placeholder="Nom de l'établissement bancaire"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="accountHolder">Titulaire du compte</Label>
-                    <Input
-                      id="accountHolder"
-                      value={fundData.bankDetails.accountHolder}
-                      onChange={(e) => handleInputChange('bankDetails', 'accountHolder', e.target.value)}
-                      placeholder="Nom du titulaire"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="iban">IBAN</Label>
-                    <Input
-                      id="iban"
-                      value={fundData.bankDetails.iban}
-                      onChange={(e) => handleInputChange('bankDetails', 'iban', e.target.value)}
-                      placeholder="Numéro IBAN"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="swiftCode">Code SWIFT/BIC</Label>
-                    <Input
-                      id="swiftCode"
-                      value={fundData.bankDetails.swiftCode}
-                      onChange={(e) => handleInputChange('bankDetails', 'swiftCode', e.target.value)}
-                      placeholder="Code SWIFT ou BIC"
-                    />
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Origine des fonds */}
+      {/* Informations sur la provenance des fonds */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Coins className="h-5 w-5" />
-            Origine des Fonds
+            Informations sur la Provenance des Fonds
           </CardTitle>
           <CardDescription>
-            Justification de la provenance des fonds utilisés
+            Détails sur l'origine et la nature des fonds utilisés
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="transactionAmount">Montant de la transaction</Label>
+                <Input
+                  id="transactionAmount"
+                  value={fundData.transactionAmount}
+                  onChange={(e) => handleInputChange('transactionAmount', e.target.value)}
+                  placeholder="Montant en euros"
+                />
+              </div>
+              <div>
+                <Label htmlFor="paymentMethod">Mode de paiement</Label>
+                <Input
+                  id="paymentMethod"
+                  value={fundData.paymentMethod}
+                  onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
+                  placeholder="Chèque, virement, espèces..."
+                />
+              </div>
+            </div>
+            
             <div>
-              <Label htmlFor="fundSource">Source principale des fonds</Label>
-              <Input
-                id="fundSource"
-                value={fundData.fundOrigin.source}
-                onChange={(e) => handleInputChange('fundOrigin', 'source', e.target.value)}
-                placeholder="Salaire, héritage, vente immobilière, etc."
+              <Label htmlFor="originDescription">Description de l'origine des fonds</Label>
+              <Textarea
+                id="originDescription"
+                value={fundData.originDescription}
+                onChange={(e) => handleInputChange('originDescription', e.target.value)}
+                placeholder="Salaire, héritage, vente de bien..."
               />
             </div>
+
             <div>
-              <Label htmlFor="fundDescription">Description détaillée</Label>
+              <Label htmlFor="bankDetails">Détails bancaires</Label>
               <Textarea
-                id="fundDescription"
-                value={fundData.fundOrigin.description}
-                onChange={(e) => handleInputChange('fundOrigin', 'description', e.target.value)}
-                placeholder="Description détaillée de l'origine des fonds"
+                id="bankDetails"
+                value={fundData.bankDetails}
+                onChange={(e) => handleInputChange('bankDetails', e.target.value)}
+                placeholder="Banque, IBAN, historique des comptes..."
               />
             </div>
+
             <div>
-              <Label htmlFor="justification">Justificatifs fournis</Label>
+              <Label htmlFor="justificationDocuments">Documents justificatifs</Label>
               <Textarea
-                id="justification"
-                value={fundData.fundOrigin.justification}
-                onChange={(e) => handleInputChange('fundOrigin', 'justification', e.target.value)}
-                placeholder="Liste des documents justificatifs fournis"
+                id="justificationDocuments"
+                value={fundData.justificationDocuments}
+                onChange={(e) => handleInputChange('justificationDocuments', e.target.value)}
+                placeholder="Liste des documents fournis"
               />
             </div>
+
+            {/* Zone de téléchargement de fichiers */}
             <div>
-              <Label htmlFor="previousTransactions">Transactions antérieures</Label>
-              <Textarea
-                id="previousTransactions"
-                value={fundData.fundOrigin.previousTransactions}
-                onChange={(e) => handleInputChange('fundOrigin', 'previousTransactions', e.target.value)}
-                placeholder="Historique des transactions liées"
-              />
+              <Label htmlFor="fileUpload">Documents joints</Label>
+              <div className="mt-2">
+                <Input
+                  id="fileUpload"
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="mb-2"
+                />
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Liens vers les sites officiels */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            Vérifications Officielles
+          </CardTitle>
+          <CardDescription>
+            Liens vers les sites officiels pour les vérifications
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
+                <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Accéder
+                </a>
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
+                <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Accéder
+                </a>
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -318,7 +281,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
             Évaluation des Risques - Provenance des Fonds
           </CardTitle>
           <CardDescription>
-            Analyse des risques liés à l'origine des fonds dans la transaction
+            Analyse des risques liés à la provenance des fonds
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -363,7 +326,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                 <span className="font-medium">Score de risque provenance:</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-2xl font-bold">{score}/6</span>
+                <span className="text-2xl font-bold">{score}/20</span>
                 <span className={`px-3 py-1 rounded-full font-medium ${
                   riskLevel === 'Faible' ? 'bg-green-100 text-green-800' :
                   riskLevel === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :

@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building, AlertCircle, User, Building2 } from "lucide-react";
+import { Building, AlertCircle, User, Building2, Upload, ExternalLink } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 
 interface AcquirerAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -17,7 +18,12 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
   const [checks, setChecks] = useState({
     companyRegistered: false,
     beneficialOwners: false,
-    suspiciousActivity: false
+    suspiciousActivity: false,
+    unreliableInfo: false,
+    actingForThird: false,
+    atypicalOperation: false,
+    knownInfractions: false,
+    noClientInfo: false
   });
 
   const [acquirerData, setAcquirerData] = useState({
@@ -34,7 +40,8 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       phone: '',
       email: '',
       profession: '',
-      income: ''
+      income: '',
+      countryOrigin: ''
     },
     // Personne morale
     legalEntity: {
@@ -48,11 +55,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       email: '',
       activity: '',
       representativeName: '',
-      representativePosition: ''
+      representativePosition: '',
+      countryOrigin: ''
     }
   });
 
   const [personType, setPersonType] = useState<'physical' | 'legal'>('physical');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const questions = [
     {
@@ -72,6 +81,36 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       label: 'Activités suspectes détectées',
       description: 'Historique d\'activités suspectes ou frauduleuses',
       risk: 'Élevé'
+    },
+    {
+      id: 'unreliableInfo',
+      label: 'Renseignements incohérents ou non fiables',
+      description: 'Les informations fournies sont contradictoires ou douteuses',
+      risk: 'Élevé'
+    },
+    {
+      id: 'actingForThird',
+      label: 'Client agissant pour un tiers',
+      description: 'L\'acquéreur agit pour le compte d\'une tierce personne',
+      risk: 'Modéré'
+    },
+    {
+      id: 'atypicalOperation',
+      label: 'Caractéristiques atypiques de l\'opération',
+      description: 'Complexité, prix ou rotation atypique de l\'opération',
+      risk: 'Élevé'
+    },
+    {
+      id: 'knownInfractions',
+      label: 'Acquéreur connu pour infractions',
+      description: 'L\'acquéreur est connu pour diverses infractions',
+      risk: 'Élevé'
+    },
+    {
+      id: 'noClientInfo',
+      label: 'Absence de renseignements de l\'acquéreur',
+      description: 'L\'acquéreur ne fournit aucun renseignement demandé',
+      risk: 'Élevé'
     }
   ];
 
@@ -80,12 +119,17 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
     if (!checks.companyRegistered) score += 1;
     if (!checks.beneficialOwners) score += 2;
     if (checks.suspiciousActivity) score += 3;
+    if (checks.unreliableInfo) score += 3;
+    if (checks.actingForThird) score += 2;
+    if (checks.atypicalOperation) score += 3;
+    if (checks.knownInfractions) score += 3;
+    if (checks.noClientInfo) score += 3;
     return score;
   };
 
   const getRiskLevel = (score: number) => {
     if (score === 0) return 'Faible';
-    if (score <= 2) return 'Modéré';
+    if (score <= 5) return 'Modéré';
     return 'Élevé';
   };
 
@@ -107,6 +151,15 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
         [field]: value
       }
     }));
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const score = calculateScore();
@@ -208,6 +261,15 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       />
                     </div>
                     <div>
+                      <Label htmlFor="acq-countryOrigin">Pays d'origine</Label>
+                      <Input
+                        id="acq-countryOrigin"
+                        value={acquirerData.physicalPerson.countryOrigin}
+                        onChange={(e) => handleInputChange('physicalPerson', 'countryOrigin', e.target.value)}
+                        placeholder="Pays d'origine"
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="acq-profession">Profession</Label>
                       <Input
                         id="acq-profession"
@@ -223,6 +285,16 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                         value={acquirerData.physicalPerson.phone}
                         onChange={(e) => handleInputChange('physicalPerson', 'phone', e.target.value)}
                         placeholder="Numéro de téléphone"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="acq-email">Email</Label>
+                      <Input
+                        id="acq-email"
+                        type="email"
+                        value={acquirerData.physicalPerson.email}
+                        onChange={(e) => handleInputChange('physicalPerson', 'email', e.target.value)}
+                        placeholder="Adresse email"
                       />
                     </div>
                     <div>
@@ -314,6 +386,15 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       />
                     </div>
                     <div>
+                      <Label htmlFor="acq-companyCountryOrigin">Pays d'origine</Label>
+                      <Input
+                        id="acq-companyCountryOrigin"
+                        value={acquirerData.legalEntity.countryOrigin}
+                        onChange={(e) => handleInputChange('legalEntity', 'countryOrigin', e.target.value)}
+                        placeholder="Pays d'origine de l'entreprise"
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="acq-companyPhone">Téléphone</Label>
                       <Input
                         id="acq-companyPhone"
@@ -385,6 +466,79 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                 </CollapsibleContent>
               </Collapsible>
             )}
+
+            {/* Zone de téléchargement de documents */}
+            <div>
+              <Label htmlFor="acquirerIdentityUpload">Documents et pièces d'identité</Label>
+              <div className="mt-2">
+                <Input
+                  id="acquirerIdentityUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileUpload}
+                  className="mb-2"
+                />
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Liens vers les sites officiels */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            Vérifications Officielles
+          </CardTitle>
+          <CardDescription>
+            Liens vers les sites officiels pour les vérifications
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
+                <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Accéder
+                </a>
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
+                <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Accéder
+                </a>
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -442,7 +596,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                 <span className="font-medium">Score de risque acquéreur:</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-2xl font-bold">{score}/6</span>
+                <span className="text-2xl font-bold">{score}/20</span>
                 <span className={`px-3 py-1 rounded-full font-medium ${
                   riskLevel === 'Faible' ? 'bg-green-100 text-green-800' :
                   riskLevel === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
