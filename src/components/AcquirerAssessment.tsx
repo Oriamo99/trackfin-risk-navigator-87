@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building, AlertCircle, User, Building2, Upload, ExternalLink } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import CountryAutocomplete from "./CountryAutocomplete";
 
 interface AcquirerAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -16,9 +18,9 @@ interface AcquirerAssessmentProps {
 
 const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
   const [checks, setChecks] = useState({
-    companyRegistered: false,
-    beneficialOwners: false,
-    suspiciousActivity: false,
+    identityVerified: false,
+    sanctionsList: false,
+    highRiskCountry: false,
     unreliableInfo: false,
     actingForThird: false,
     atypicalOperation: false,
@@ -35,10 +37,14 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       birthPlace: '',
       nationality: '',
       address: '',
+      country: '',
       city: '',
       postalCode: '',
       phone: '',
       email: '',
+      idDocument: '',
+      idDocumentOther: '',
+      idNumber: '',
       profession: '',
       income: '',
       countryOrigin: ''
@@ -49,6 +55,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       legalForm: '',
       siret: '',
       address: '',
+      country: '',
       city: '',
       postalCode: '',
       phone: '',
@@ -62,25 +69,27 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
 
   const [personType, setPersonType] = useState<'physical' | 'legal'>('physical');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [sanctionsScreenshots, setSanctionsScreenshots] = useState<File[]>([]);
+  const [gafiScreenshots, setGafiScreenshots] = useState<File[]>([]);
 
   const questions = [
     {
-      id: 'companyRegistered',
-      label: 'Société enregistrée légalement',
-      description: 'Vérification du registre des entreprises',
+      id: 'identityVerified',
+      label: 'Identité de l\'acquéreur vérifiée',
+      description: 'Documents d\'identité valides et vérifiés',
       risk: 'Faible'
     },
     {
-      id: 'beneficialOwners',
-      label: 'Bénéficiaires effectifs identifiés',
-      description: 'Identification claire des bénéficiaires effectifs',
-      risk: 'Modéré'
+      id: 'sanctionsList',
+      label: 'Présence sur listes de sanctions',
+      description: 'Vérification des listes de sanctions internationales',
+      risk: 'Élevé'
     },
     {
-      id: 'suspiciousActivity',
-      label: 'Activités suspectes détectées',
-      description: 'Historique d\'activités suspectes ou frauduleuses',
-      risk: 'Élevé'
+      id: 'highRiskCountry',
+      label: 'Pays à haut risque',
+      description: 'Acquéreur originaire d\'un pays à haut risque',
+      risk: 'Modéré'
     },
     {
       id: 'unreliableInfo',
@@ -116,9 +125,9 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
 
   const calculateScore = () => {
     let score = 0;
-    if (!checks.companyRegistered) score += 1;
-    if (!checks.beneficialOwners) score += 2;
-    if (checks.suspiciousActivity) score += 3;
+    if (!checks.identityVerified) score += 1;
+    if (checks.sanctionsList) score += 3;
+    if (checks.highRiskCountry) score += 2;
     if (checks.unreliableInfo) score += 3;
     if (checks.actingForThird) score += 2;
     if (checks.atypicalOperation) score += 3;
@@ -158,8 +167,24 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
     setUploadedFiles(prev => [...prev, ...files]);
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  const handleSanctionsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSanctionsScreenshots(prev => [...prev, ...files]);
+  };
+
+  const handleGafiUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setGafiScreenshots(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi') => {
+    if (type === 'identity') {
+      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    } else if (type === 'sanctions') {
+      setSanctionsScreenshots(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setGafiScreenshots(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const score = calculateScore();
@@ -251,33 +276,20 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                         placeholder="Lieu de naissance"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="acq-nationality">Nationalité</Label>
-                      <Input
-                        id="acq-nationality"
-                        value={acquirerData.physicalPerson.nationality}
-                        onChange={(e) => handleInputChange('physicalPerson', 'nationality', e.target.value)}
-                        placeholder="Nationalité"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="acq-countryOrigin">Pays d'origine</Label>
-                      <Input
-                        id="acq-countryOrigin"
-                        value={acquirerData.physicalPerson.countryOrigin}
-                        onChange={(e) => handleInputChange('physicalPerson', 'countryOrigin', e.target.value)}
-                        placeholder="Pays d'origine"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="acq-profession">Profession</Label>
-                      <Input
-                        id="acq-profession"
-                        value={acquirerData.physicalPerson.profession}
-                        onChange={(e) => handleInputChange('physicalPerson', 'profession', e.target.value)}
-                        placeholder="Profession"
-                      />
-                    </div>
+                    <CountryAutocomplete
+                      id="acq-nationality"
+                      label="Nationalité"
+                      value={acquirerData.physicalPerson.nationality}
+                      onChange={(value) => handleInputChange('physicalPerson', 'nationality', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
+                    <CountryAutocomplete
+                      id="acq-countryOrigin"
+                      label="Pays d'origine"
+                      value={acquirerData.physicalPerson.countryOrigin}
+                      onChange={(value) => handleInputChange('physicalPerson', 'countryOrigin', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
                     <div>
                       <Label htmlFor="acq-phone">Téléphone</Label>
                       <Input
@@ -295,6 +307,50 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                         value={acquirerData.physicalPerson.email}
                         onChange={(e) => handleInputChange('physicalPerson', 'email', e.target.value)}
                         placeholder="Adresse email"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="acq-idDocument">Type de pièce d'identité</Label>
+                      <Select 
+                        value={acquirerData.physicalPerson.idDocument} 
+                        onValueChange={(value) => handleInputChange('physicalPerson', 'idDocument', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionnez le type de pièce d'identité" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cni">Carte nationale d'identité</SelectItem>
+                          <SelectItem value="passeport">Passeport</SelectItem>
+                          <SelectItem value="permis">Permis de conduire</SelectItem>
+                          <SelectItem value="autre">Autre</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {acquirerData.physicalPerson.idDocument === 'autre' && (
+                        <div className="mt-2">
+                          <Input
+                            value={acquirerData.physicalPerson.idDocumentOther}
+                            onChange={(e) => handleInputChange('physicalPerson', 'idDocumentOther', e.target.value)}
+                            placeholder="Précisez le type de pièce d'identité"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="acq-idNumber">Numéro de pièce d'identité</Label>
+                      <Input
+                        id="acq-idNumber"
+                        value={acquirerData.physicalPerson.idNumber}
+                        onChange={(e) => handleInputChange('physicalPerson', 'idNumber', e.target.value)}
+                        placeholder="Numéro de la pièce d'identité"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="acq-profession">Profession</Label>
+                      <Input
+                        id="acq-profession"
+                        value={acquirerData.physicalPerson.profession}
+                        onChange={(e) => handleInputChange('physicalPerson', 'profession', e.target.value)}
+                        placeholder="Profession"
                       />
                     </div>
                     <div>
@@ -316,7 +372,14 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       placeholder="Adresse complète"
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <CountryAutocomplete
+                      id="acq-country"
+                      label="Pays"
+                      value={acquirerData.physicalPerson.country}
+                      onChange={(value) => handleInputChange('physicalPerson', 'country', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
                     <div>
                       <Label htmlFor="acq-city">Ville</Label>
                       <Input
@@ -385,15 +448,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                         placeholder="Secteur d'activité"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="acq-companyCountryOrigin">Pays d'origine</Label>
-                      <Input
-                        id="acq-companyCountryOrigin"
-                        value={acquirerData.legalEntity.countryOrigin}
-                        onChange={(e) => handleInputChange('legalEntity', 'countryOrigin', e.target.value)}
-                        placeholder="Pays d'origine de l'entreprise"
-                      />
-                    </div>
+                    <CountryAutocomplete
+                      id="acq-companyCountryOrigin"
+                      label="Pays d'origine"
+                      value={acquirerData.legalEntity.countryOrigin}
+                      onChange={(value) => handleInputChange('legalEntity', 'countryOrigin', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
                     <div>
                       <Label htmlFor="acq-companyPhone">Téléphone</Label>
                       <Input
@@ -404,9 +465,9 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-email">Email</Label>
+                      <Label htmlFor="acq-companyEmail">Email</Label>
                       <Input
-                        id="acq-email"
+                        id="acq-companyEmail"
                         type="email"
                         value={acquirerData.legalEntity.email}
                         onChange={(e) => handleInputChange('legalEntity', 'email', e.target.value)}
@@ -423,7 +484,14 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       placeholder="Adresse complète du siège social"
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <CountryAutocomplete
+                      id="acq-companyCountry"
+                      label="Pays"
+                      value={acquirerData.legalEntity.country}
+                      onChange={(value) => handleInputChange('legalEntity', 'country', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
                     <div>
                       <Label htmlFor="acq-companyCity">Ville</Label>
                       <Input
@@ -467,12 +535,12 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               </Collapsible>
             )}
 
-            {/* Zone de téléchargement de documents */}
+            {/* Zone de téléchargement de pièces d'identité */}
             <div>
-              <Label htmlFor="acquirerIdentityUpload">Documents et pièces d'identité</Label>
+              <Label htmlFor="acq-identityUpload">Pièces d'identité et documents</Label>
               <div className="mt-2">
                 <Input
-                  id="acquirerIdentityUpload"
+                  id="acq-identityUpload"
                   type="file"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png"
@@ -487,7 +555,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => removeFile(index)}
+                          onClick={() => removeFile(index, 'identity')}
                         >
                           Supprimer
                         </Button>
@@ -509,35 +577,93 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
             Vérifications Officielles
           </CardTitle>
           <CardDescription>
-            Liens vers les sites officiels pour les vérifications
+            Liens vers les sites officiels pour les vérifications et capture d'écran
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
-                <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
+                  <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
               </div>
-              <Button variant="outline" asChild>
-                <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Accéder
-                </a>
-              </Button>
+              <div>
+                <Label htmlFor="acq-sanctionsUpload">Capture d'écran des vérifications</Label>
+                <Input
+                  id="acq-sanctionsUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleSanctionsUpload}
+                  className="mt-2"
+                />
+                {sanctionsScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {sanctionsScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'sanctions')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
-                <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
+                  <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
               </div>
-              <Button variant="outline" asChild>
-                <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Accéder
-                </a>
-              </Button>
+              <div>
+                <Label htmlFor="acq-gafiUpload">Capture d'écran GAFI</Label>
+                <Input
+                  id="acq-gafiUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleGafiUpload}
+                  className="mt-2"
+                />
+                {gafiScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {gafiScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'gafi')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -562,7 +688,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                   <TableHead>Critère d'évaluation</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Niveau de risque</TableHead>
-                  <TableHead className="text-center">Oui/Non</TableHead>
+                  <TableHead className="text-center">Réponse</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -580,10 +706,28 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Checkbox
-                        checked={checks[question.id as keyof typeof checks]}
-                        onCheckedChange={(checked) => handleCheck(question.id, checked as boolean)}
-                      />
+                      <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`acq-${question.id}-oui`}
+                            checked={checks[question.id as keyof typeof checks]}
+                            onCheckedChange={(checked) => handleCheck(question.id, checked as boolean)}
+                          />
+                          <Label htmlFor={`acq-${question.id}-oui`} className="text-sm font-medium">
+                            Oui
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`acq-${question.id}-non`}
+                            checked={!checks[question.id as keyof typeof checks]}
+                            onCheckedChange={(checked) => handleCheck(question.id, !(checked as boolean))}
+                          />
+                          <Label htmlFor={`acq-${question.id}-non`} className="text-sm font-medium">
+                            Non
+                          </Label>
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
