@@ -6,17 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, AlertCircle, User, Building2, Upload, ExternalLink } from "lucide-react";
+import { Users, AlertCircle, User, Building2, Upload, ExternalLink, Save } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import CountryAutocomplete from "./CountryAutocomplete";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { toast } from "sonner";
 
 interface VendorAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
 }
 
 const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
-  const [checks, setChecks] = useState({
+  const [checks, setChecks] = useLocalStorage('vendorChecks', {
     identityVerified: false,
     sanctionsList: false,
     highRiskCountry: false,
@@ -27,7 +29,7 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     noClientInfo: false
   });
 
-  const [vendorData, setVendorData] = useState({
+  const [vendorData, setVendorData] = useLocalStorage('vendorData', {
     // Personne physique
     physicalPerson: {
       lastName: '',
@@ -61,10 +63,11 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     }
   });
 
-  const [personType, setPersonType] = useState<'physical' | 'legal'>('physical');
+  const [personType, setPersonType] = useLocalStorage<'physical' | 'legal'>('vendorPersonType', 'physical');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [sanctionsScreenshots, setSanctionsScreenshots] = useState<File[]>([]);
   const [gafiScreenshots, setGafiScreenshots] = useState<File[]>([]);
+  const [googleScreenshots, setGoogleScreenshots] = useState<File[]>([]);
 
   const questions = [
     {
@@ -171,14 +174,26 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     setGafiScreenshots(prev => [...prev, ...files]);
   };
 
-  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi') => {
+  const handleGoogleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setGoogleScreenshots(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi' | 'google') => {
     if (type === 'identity') {
       setUploadedFiles(prev => prev.filter((_, i) => i !== index));
     } else if (type === 'sanctions') {
       setSanctionsScreenshots(prev => prev.filter((_, i) => i !== index));
-    } else {
+    } else if (type === 'gafi') {
       setGafiScreenshots(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setGoogleScreenshots(prev => prev.filter((_, i) => i !== index));
     }
+  };
+
+  const handleSave = () => {
+    // Les données sont automatiquement sauvegardées avec useLocalStorage
+    toast.success("Données des vendeurs sauvegardées avec succès !");
   };
 
   const score = calculateScore();
@@ -618,6 +633,48 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                 )}
               </div>
             </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">Vérification Google</h4>
+                  <p className="text-sm text-gray-600">Recherche d'informations complémentaires</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.google.com" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
+              </div>
+              <div>
+                <Label htmlFor="googleUpload">Capture d'écran Google</Label>
+                <Input
+                  id="googleUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleGoogleUpload}
+                  className="mt-2"
+                />
+                {googleScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {googleScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'google')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -706,6 +763,14 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Bouton de sauvegarde */}
+      <div className="text-center">
+        <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+          <Save className="h-4 w-4 mr-2" />
+          Sauvegarder les données vendeurs
+        </Button>
+      </div>
     </div>
   );
 };

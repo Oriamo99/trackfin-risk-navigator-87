@@ -1,11 +1,13 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { toast } from "sonner";
 
 interface Assessment {
   score: number;
@@ -78,192 +80,261 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
     setDocumentInfo(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleExportPDF = () => {
-    console.log('Export PDF functionality would be implemented here');
-    // Here you would implement the PDF export functionality
-    // For now, we'll just log the action
-    alert('Fonctionnalité d\'export PDF à implémenter avec une bibliothèque PDF');
+  const handleSaveDocument = () => {
+    // Sauvegarder en tant que fichier JSON
+    const documentData = {
+      assessments,
+      totalScore,
+      overallRisk,
+      documentInfo,
+      timestamp: new Date().toISOString()
+    };
+    
+    const dataStr = JSON.stringify(documentData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `tracfin_evaluation_${new Date().toISOString().split('T')[0]}.json';
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    toast.success("Document sauvegardé avec succès !");
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      toast.info("Génération du PDF en cours...");
+      
+      const element = document.getElementById('risk-summary-content');
+      if (!element) {
+        toast.error("Impossible de trouver le contenu à exporter");
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+      });
+      
+      const imgData = canvas.getImageData(0, 0, canvas.width, canvas.height);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 30;
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      
+      const fileName = `TRACFIN_Evaluation_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+      
+      toast.success("PDF exporté avec succès !");
+    } catch (error) {
+      console.error('Erreur lors de l\'export PDF:', error);
+      toast.error("Erreur lors de l'export PDF. Veuillez réessayer.");
+    }
   };
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Résumé de l'évaluation des risques
-          </CardTitle>
-          <CardDescription>
-            Synthèse complète de l'analyse de risque de blanchiment
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead className="text-center">Score</TableHead>
-                  <TableHead className="text-center">Niveau de risque</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((category) => {
-                  const Icon = category.icon;
-                  return (
-                    <TableRow key={category.name}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
-                          {category.name}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center font-bold">
-                        {category.score}/6
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          {getRiskIcon(category.level)}
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            category.level === 'Faible' ? 'bg-green-100 text-green-800' :
-                            category.level === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {category.level}
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+      <div id="risk-summary-content">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Résumé de l'évaluation des risques
+            </CardTitle>
+            <CardDescription>
+              Synthèse complète de l'analyse de risque de blanchiment
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Catégorie</TableHead>
+                    <TableHead className="text-center">Score</TableHead>
+                    <TableHead className="text-center">Niveau de risque</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categories.map((category) => {
+                    const Icon = category.icon;
+                    return (
+                      <TableRow key={category.name}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {category.name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {category.score}/6
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            {getRiskIcon(category.level)}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              category.level === 'Faible' ? 'bg-green-100 text-green-800' :
+                              category.level === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {category.level}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
 
-            <div className="border-t pt-6">
+              <div className="border-t pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="border-2">
+                    <CardHeader className="text-center">
+                      <CardTitle className="text-lg">Score Total</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-center">
+                      <div className="text-3xl font-bold text-blue-600">{totalScore}/18</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className={`border-2 ${
+                    overallRisk === 'Faible' ? 'border-green-200 bg-green-50' :
+                    overallRisk === 'Modéré' ? 'border-yellow-200 bg-yellow-50' :
+                    'border-red-200 bg-red-50'
+                  }`}>
+                    <CardHeader className="text-center">
+                      <CardTitle className="text-lg">Risque Global</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {getRiskIcon(overallRisk)}
+                        <span className="text-2xl font-bold">{overallRisk}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              <Card className="bg-blue-50 border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-lg text-blue-900">Recommandation</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-blue-800 font-medium">{getRecommendation(overallRisk)}</p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Informations du document et signatures */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Finalisation du Document
+            </CardTitle>
+            <CardDescription>
+              Informations et signatures pour la validation du rapport
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* Date et lieu */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="date">Date de rédaction</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={documentInfo.date}
+                    onChange={(e) => handleDocumentInfoChange('date', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="location">Lieu</Label>
+                  <Input
+                    id="location"
+                    value={documentInfo.location}
+                    onChange={(e) => handleDocumentInfoChange('location', e.target.value)}
+                    placeholder="Ville, bureau..."
+                  />
+                </div>
+              </div>
+
+              {/* Signatures */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-2">
+                <Card className="border-dashed border-2 border-gray-300">
                   <CardHeader className="text-center">
-                    <CardTitle className="text-lg">Score Total</CardTitle>
+                    <CardTitle className="text-base">Signature du Conseiller</CardTitle>
                   </CardHeader>
-                  <CardContent className="text-center">
-                    <div className="text-3xl font-bold text-blue-600">{totalScore}/18</div>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <Input
+                        value={documentInfo.advisorSignature}
+                        onChange={(e) => handleDocumentInfoChange('advisorSignature', e.target.value)}
+                        placeholder="Nom et prénom du conseiller"
+                      />
+                      <div className="h-24 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                        <span className="text-gray-400 text-sm">Zone de signature</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
-                <Card className={`border-2 ${
-                  overallRisk === 'Faible' ? 'border-green-200 bg-green-50' :
-                  overallRisk === 'Modéré' ? 'border-yellow-200 bg-yellow-50' :
-                  'border-red-200 bg-red-50'
-                }`}>
+                <Card className="border-dashed border-2 border-gray-300">
                   <CardHeader className="text-center">
-                    <CardTitle className="text-lg">Risque Global</CardTitle>
+                    <CardTitle className="text-base">Signature du Responsable</CardTitle>
                   </CardHeader>
-                  <CardContent className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {getRiskIcon(overallRisk)}
-                      <span className="text-2xl font-bold">{overallRisk}</span>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <Input
+                        value={documentInfo.managerSignature}
+                        onChange={(e) => handleDocumentInfoChange('managerSignature', e.target.value)}
+                        placeholder="Nom et prénom du responsable"
+                      />
+                      <div className="h-24 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex items-center justify-center">
+                        <span className="text-gray-400 text-sm">Zone de signature</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
-            </div>
 
-            <Card className="bg-blue-50 border-blue-200">
-              <CardHeader>
-                <CardTitle className="text-lg text-blue-900">Recommandation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-blue-800 font-medium">{getRecommendation(overallRisk)}</p>
-              </CardContent>
-            </Card>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Informations du document et signatures */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Finalisation du Document
-          </CardTitle>
-          <CardDescription>
-            Informations et signatures pour la validation du rapport
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* Date et lieu */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="date">Date de rédaction</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={documentInfo.date}
-                  onChange={(e) => handleDocumentInfoChange('date', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="location">Lieu</Label>
-                <Input
-                  id="location"
-                  value={documentInfo.location}
-                  onChange={(e) => handleDocumentInfoChange('location', e.target.value)}
-                  placeholder="Ville, bureau..."
-                />
+              {/* Export PDF */}
+              <div className="text-center pt-4">
+                <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exporter en PDF
+                </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
 
-            {/* Signatures */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-dashed border-2 border-gray-300">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-base">Signature du Conseiller</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Input
-                      value={documentInfo.advisorSignature}
-                      onChange={(e) => handleDocumentInfoChange('advisorSignature', e.target.value)}
-                      placeholder="Nom et prénom du conseiller"
-                    />
-                    <div className="h-24 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Zone de signature</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-dashed border-2 border-gray-300">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-base">Signature du Responsable</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Input
-                      value={documentInfo.managerSignature}
-                      onChange={(e) => handleDocumentInfoChange('managerSignature', e.target.value)}
-                      placeholder="Nom et prénom du responsable"
-                    />
-                    <div className="h-24 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Zone de signature</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Export PDF */}
-            <div className="text-center pt-4">
-              <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
-                <Download className="h-4 w-4 mr-2" />
-                Exporter en PDF
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Boutons d'action */}
+      <div className="flex justify-center gap-4 pt-4">
+        <Button onClick={handleSaveDocument} className="bg-blue-600 hover:bg-blue-700">
+          <Save className="h-4 w-4 mr-2" />
+          Enregistrer
+        </Button>
+        <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
+          <Download className="h-4 w-4 mr-2" />
+          Exporter en PDF
+        </Button>
+      </div>
     </div>
   );
 };

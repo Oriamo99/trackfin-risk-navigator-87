@@ -8,13 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Coins, AlertCircle, Upload, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { toast } from "sonner";
+import { Save } from "lucide-react";
 
 interface FundOriginAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
 }
 
 const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
-  const [checks, setChecks] = useState({
+  const [checks, setChecks] = useLocalStorage('fundOriginChecks', {
     legitimateSource: false,
     unusualPattern: false,
     cashTransaction: false,
@@ -25,7 +28,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     noClientInfo: false
   });
 
-  const [fundData, setFundData] = useState({
+  const [fundData, setFundData] = useLocalStorage('fundData', {
     originDescription: '',
     bankDetails: '',
     transactionAmount: '',
@@ -172,6 +175,10 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     { value: 'pret_bancaire', label: 'Prêt bancaire' },
     { value: 'autre', label: 'Autre' }
   ];
+
+  const handleSave = () => {
+    toast.success("Données de provenance des fonds sauvegardées avec succès !");
+  };
 
   return (
     <div className="space-y-6">
@@ -448,6 +455,14 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Bouton de sauvegarde */}
+      <div className="text-center">
+        <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+          <Save className="h-4 w-4 mr-2" />
+          Sauvegarder les données de provenance
+        </Button>
+      </div>
     </div>
   );
 };
