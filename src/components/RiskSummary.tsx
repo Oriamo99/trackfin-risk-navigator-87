@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Save } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Save, Database } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toast } from "sonner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useGlobalData } from "@/hooks/useGlobalData";
 
 interface Assessment {
   score: number;
@@ -27,6 +27,7 @@ interface RiskSummaryProps {
 }
 
 const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps) => {
+  const { globalData, updateSummaryData } = useGlobalData();
   const [documentInfo, setDocumentInfo] = useLocalStorage('riskSummaryDocumentInfo', {
     date: new Date().toISOString().split('T')[0],
     location: '',
@@ -80,6 +81,202 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
 
   const handleDocumentInfoChange = (field: string, value: string) => {
     setDocumentInfo(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFinalSave = () => {
+    // Sauvegarder toutes les données finales
+    updateSummaryData({
+      assessments,
+      totalScore,
+      overallRisk,
+      documentInfo,
+      finalSaveTimestamp: new Date().toISOString()
+    });
+    
+    toast.success("Enregistrement final effectué avec succès ! Toutes les données ont été sauvegardées.");
+  };
+
+  const generateCompleteTextContent = () => {
+    const vendorData = globalData.vendor;
+    const acquirerData = globalData.acquirer;
+    const fundData = globalData.fundOrigin;
+    
+    return `
+TRACFIN - ÉVALUATION COMPLÈTE DES RISQUES
+========================================
+
+Date de génération: ${new Date().toLocaleString('fr-FR')}
+Date de rédaction: ${documentInfo.date}
+Lieu: ${documentInfo.location}
+
+INFORMATIONS DE TRANSACTION
+---------------------------
+Type de transaction: ${globalData.transactionInfo?.transactionType || 'Non renseigné'}
+Type de bien: ${globalData.transactionInfo?.propertyType || 'Non renseigné'}
+
+=== SECTION VENDEURS ===
+-----------------------
+Informations vendeur:
+${Object.entries(vendorData.vendorInfo || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Évaluation des risques vendeur:
+${Object.entries(vendorData.riskAssessment || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Vérification officielle vendeur:
+${Object.entries(vendorData.officialVerification || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Fichiers téléchargés vendeur: ${vendorData.uploadedFiles?.length || 0} fichier(s)
+
+=== SECTION ACQUÉREURS ===
+-------------------------
+Informations acquéreur:
+${Object.entries(acquirerData.acquirerInfo || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Évaluation des risques acquéreur:
+${Object.entries(acquirerData.riskAssessment || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Vérification officielle acquéreur:
+${Object.entries(acquirerData.officialVerification || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Fichiers téléchargés acquéreur: ${acquirerData.uploadedFiles?.length || 0} fichier(s)
+
+=== SECTION PROVENANCE DES FONDS ===
+-----------------------------------
+Informations provenance des fonds:
+${Object.entries(fundData.fundOriginInfo || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Évaluation des risques provenance:
+${Object.entries(fundData.riskAssessment || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Fichiers téléchargés provenance: ${fundData.uploadedFiles?.length || 0} fichier(s)
+
+=== RÉSUMÉ DE L'ÉVALUATION ===
+-----------------------------
+Vendeurs: ${assessments.vendor.score}/6 - ${assessments.vendor.level}
+Acquéreurs: ${assessments.acquirer.score}/6 - ${assessments.acquirer.level}
+Provenance des fonds: ${assessments.fundOrigin.score}/6 - ${assessments.fundOrigin.level}
+
+SCORE TOTAL: ${totalScore}/18
+RISQUE GLOBAL: ${overallRisk}
+
+RECOMMANDATION: ${getRecommendation(overallRisk)}
+
+SIGNATURES
+----------
+Conseiller: ${documentInfo.advisorSignature}
+Responsable: ${documentInfo.managerSignature}
+
+RÉSUMÉ DES FICHIERS TÉLÉCHARGÉS
+------------------------------
+Total fichiers vendeur: ${vendorData.uploadedFiles?.length || 0}
+Total fichiers acquéreur: ${acquirerData.uploadedFiles?.length || 0}
+Total fichiers provenance: ${fundData.uploadedFiles?.length || 0}
+Total général: ${(vendorData.uploadedFiles?.length || 0) + (acquirerData.uploadedFiles?.length || 0) + (fundData.uploadedFiles?.length || 0)}
+
+Document généré le: ${new Date().toLocaleString('fr-FR')}
+    `.trim();
+  };
+
+  const handleCompleteTextExport = () => {
+    const completeContent = generateCompleteTextContent();
+    const textBlob = new Blob([completeContent], { type: 'text/plain;charset=utf-8' });
+    const textUrl = URL.createObjectURL(textBlob);
+    
+    const link = document.createElement('a');
+    link.href = textUrl;
+    link.download = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    
+    URL.revokeObjectURL(textUrl);
+    toast.success("Export texte complet terminé avec succès !");
+  };
+
+  const handleCompletePDFExport = async () => {
+    try {
+      toast.info("Génération du PDF complet en cours... Cela peut prendre quelques instants.");
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+      
+      // Page de titre
+      pdf.setFontSize(20);
+      pdf.text('TRACFIN - ÉVALUATION COMPLÈTE', pageWidth / 2, 30, { align: 'center' });
+      pdf.setFontSize(16);
+      pdf.text('LUTTE CONTRE LE BLANCHIMENT', pageWidth / 2, 45, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.text(`Date: ${documentInfo.date}`, margin, 70);
+      pdf.text(`Lieu: ${documentInfo.location}`, margin, 85);
+      pdf.text(`Risque Global: ${overallRisk}`, margin, 100);
+      pdf.text(`Score Total: ${totalScore}/18`, margin, 115);
+      
+      // Résumé des évaluations
+      pdf.setFontSize(14);
+      pdf.text('RÉSUMÉ DES ÉVALUATIONS', margin, 140);
+      pdf.setFontSize(10);
+      let yPos = 155;
+      
+      categories.forEach((category) => {
+        pdf.text(`${category.name}: ${category.score}/6 - ${category.level}`, margin, yPos);
+        yPos += 15;
+      });
+      
+      // Recommandation
+      yPos += 10;
+      pdf.setFontSize(12);
+      pdf.text('RECOMMANDATION:', margin, yPos);
+      yPos += 15;
+      pdf.setFontSize(10);
+      const recommendation = getRecommendation(overallRisk);
+      const splitRecommendation = pdf.splitTextToSize(recommendation, contentWidth);
+      pdf.text(splitRecommendation, margin, yPos);
+      
+      // Nouvelle page pour les détails complets
+      pdf.addPage();
+      yPos = 30;
+      
+      pdf.setFontSize(14);
+      pdf.text('DONNÉES COMPLÈTES', margin, yPos);
+      yPos += 20;
+      
+      const completeText = generateCompleteTextContent();
+      pdf.setFontSize(8);
+      const splitText = pdf.splitTextToSize(completeText, contentWidth);
+      
+      splitText.forEach((line: string) => {
+        if (yPos > pageHeight - margin) {
+          pdf.addPage();
+          yPos = 30;
+        }
+        pdf.text(line, margin, yPos);
+        yPos += 5;
+      });
+      
+      // Page de signatures
+      pdf.addPage();
+      pdf.setFontSize(14);
+      pdf.text('SIGNATURES', margin, 30);
+      
+      pdf.setFontSize(12);
+      pdf.text('Conseiller:', margin, 60);
+      pdf.text(documentInfo.advisorSignature || '___________________', margin, 75);
+      
+      pdf.text('Responsable:', margin, 110);
+      pdf.text(documentInfo.managerSignature || '___________________', margin, 125);
+      
+      pdf.text(`Document généré le: ${new Date().toLocaleString('fr-FR')}`, margin, pageHeight - 30);
+      
+      const fileName = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+      
+      toast.success("PDF complet exporté avec succès !");
+    } catch (error) {
+      console.error('Erreur lors de l\'export PDF complet:', error);
+      toast.error("Erreur lors de l'export PDF complet. Veuillez réessayer.");
+    }
   };
 
   const handleSaveDocument = () => {
@@ -154,7 +351,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       timestamp: new Date().toISOString()
     };
     
-    // Créer un contenu texte formaté
     const textContent = `
 TRACFIN - ÉVALUATION DES RISQUES
 ================================
@@ -364,18 +560,30 @@ Document généré le: ${new Date().toLocaleString('fr-FR')}
         </Card>
       </div>
 
-      <div className="flex justify-center gap-4 pt-4">
-        <Button onClick={handleSaveDocument} className="bg-blue-600 hover:bg-blue-700">
+      <div className="flex flex-wrap justify-center gap-4 pt-4">
+        <Button onClick={handleFinalSave} className="bg-blue-600 hover:bg-blue-700">
+          <Database className="h-4 w-4 mr-2" />
+          Enregistrement final
+        </Button>
+        <Button onClick={handleSaveDocument} className="bg-green-600 hover:bg-green-700">
           <Save className="h-4 w-4 mr-2" />
           Enregistrer (JSON)
         </Button>
-        <Button onClick={handleSaveAs} className="bg-green-600 hover:bg-green-700">
+        <Button onClick={handleSaveAs} className="bg-yellow-600 hover:bg-yellow-700">
           <FileText className="h-4 w-4 mr-2" />
-          Enregistrer (Texte)
+          Enregistrer (Résumé)
         </Button>
-        <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
+        <Button onClick={handleCompleteTextExport} className="bg-purple-600 hover:bg-purple-700">
+          <FileText className="h-4 w-4 mr-2" />
+          Export Texte Complet
+        </Button>
+        <Button onClick={handleExportPDF} className="bg-orange-600 hover:bg-orange-700">
           <Download className="h-4 w-4 mr-2" />
-          Exporter en PDF
+          PDF Résumé
+        </Button>
+        <Button onClick={handleCompletePDFExport} className="bg-red-600 hover:bg-red-700">
+          <Download className="h-4 w-4 mr-2" />
+          PDF Complet
         </Button>
       </div>
     </div>

@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,22 +9,40 @@ import VendorAssessment from "@/components/VendorAssessment";
 import AcquirerAssessment from "@/components/AcquirerAssessment";
 import FundOriginAssessment from "@/components/FundOriginAssessment";
 import RiskSummary from "@/components/RiskSummary";
+import { useGlobalData } from "@/hooks/useGlobalData";
 
 const Index = () => {
+  const { globalData, updateTransactionInfo, updateSummaryData } = useGlobalData();
   const [assessments, setAssessments] = useState({
     vendor: { score: 0, level: 'Faible' },
     acquirer: { score: 0, level: 'Faible' },
     fundOrigin: { score: 0, level: 'Faible' }
   });
 
-  const [transactionType, setTransactionType] = useState('');
-  const [propertyType, setPropertyType] = useState('');
+  const [transactionType, setTransactionType] = useState(globalData.transactionInfo.transactionType || '');
+  const [propertyType, setPropertyType] = useState(globalData.transactionInfo.propertyType || '');
+
+  useEffect(() => {
+    updateTransactionInfo({ transactionType, propertyType });
+  }, [transactionType, propertyType, updateTransactionInfo]);
 
   const updateAssessment = (type: string, score: number, level: string) => {
-    setAssessments(prev => ({
-      ...prev,
-      [type]: { score, level }
-    }));
+    setAssessments(prev => {
+      const newAssessments = {
+        ...prev,
+        [type]: { score, level }
+      };
+      
+      // Mettre à jour les données globales
+      updateSummaryData({
+        assessments: newAssessments,
+        totalScore: newAssessments.vendor.score + newAssessments.acquirer.score + newAssessments.fundOrigin.score,
+        overallRisk: (newAssessments.vendor.score + newAssessments.acquirer.score + newAssessments.fundOrigin.score) <= 3 ? 'Faible' : 
+                    (newAssessments.vendor.score + newAssessments.acquirer.score + newAssessments.fundOrigin.score) <= 6 ? 'Modéré' : 'Élevé'
+      });
+      
+      return newAssessments;
+    });
   };
 
   const totalScore = assessments.vendor.score + assessments.acquirer.score + assessments.fundOrigin.score;
@@ -112,7 +129,7 @@ const Index = () => {
                  <XCircle className="h-6 w-6" />}
                 {overallRisk}
               </div>
-              <p className="text-gray-600 mt-2">Score total: {totalScore}/9</p>
+              <p className="text-gray-600 mt-2">Score total: {totalScore}/18</p>
             </div>
           </CardContent>
         </Card>
