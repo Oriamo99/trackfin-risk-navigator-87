@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -6,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, AlertCircle, User, Building2, Upload, ExternalLink } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import CountryAutocomplete from "./CountryAutocomplete";
 
 interface VendorAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -40,6 +41,7 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
       phone: '',
       email: '',
       idDocument: '',
+      idDocumentOther: '',
       idNumber: '',
       countryOrigin: ''
     },
@@ -61,6 +63,8 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
 
   const [personType, setPersonType] = useState<'physical' | 'legal'>('physical');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [sanctionsScreenshots, setSanctionsScreenshots] = useState<File[]>([]);
+  const [gafiScreenshots, setGafiScreenshots] = useState<File[]>([]);
 
   const questions = [
     {
@@ -157,8 +161,24 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     setUploadedFiles(prev => [...prev, ...files]);
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  const handleSanctionsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSanctionsScreenshots(prev => [...prev, ...files]);
+  };
+
+  const handleGafiUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setGafiScreenshots(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi') => {
+    if (type === 'identity') {
+      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    } else if (type === 'sanctions') {
+      setSanctionsScreenshots(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setGafiScreenshots(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const score = calculateScore();
@@ -250,24 +270,20 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                         placeholder="Lieu de naissance"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="nationality">Nationalité</Label>
-                      <Input
-                        id="nationality"
-                        value={vendorData.physicalPerson.nationality}
-                        onChange={(e) => handleInputChange('physicalPerson', 'nationality', e.target.value)}
-                        placeholder="Nationalité"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="countryOrigin">Pays d'origine</Label>
-                      <Input
-                        id="countryOrigin"
-                        value={vendorData.physicalPerson.countryOrigin}
-                        onChange={(e) => handleInputChange('physicalPerson', 'countryOrigin', e.target.value)}
-                        placeholder="Pays d'origine"
-                      />
-                    </div>
+                    <CountryAutocomplete
+                      id="nationality"
+                      label="Nationalité"
+                      value={vendorData.physicalPerson.nationality}
+                      onChange={(value) => handleInputChange('physicalPerson', 'nationality', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
+                    <CountryAutocomplete
+                      id="countryOrigin"
+                      label="Pays d'origine"
+                      value={vendorData.physicalPerson.countryOrigin}
+                      onChange={(value) => handleInputChange('physicalPerson', 'countryOrigin', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
                     <div>
                       <Label htmlFor="phone">Téléphone</Label>
                       <Input
@@ -289,12 +305,29 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                     </div>
                     <div>
                       <Label htmlFor="idDocument">Type de pièce d'identité</Label>
-                      <Input
-                        id="idDocument"
-                        value={vendorData.physicalPerson.idDocument}
-                        onChange={(e) => handleInputChange('physicalPerson', 'idDocument', e.target.value)}
-                        placeholder="CNI, Passeport, etc."
-                      />
+                      <Select 
+                        value={vendorData.physicalPerson.idDocument} 
+                        onValueChange={(value) => handleInputChange('physicalPerson', 'idDocument', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionnez le type de pièce d'identité" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cni">Carte nationale d'identité</SelectItem>
+                          <SelectItem value="passeport">Passeport</SelectItem>
+                          <SelectItem value="permis">Permis de conduire</SelectItem>
+                          <SelectItem value="autre">Autre</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {vendorData.physicalPerson.idDocument === 'autre' && (
+                        <div className="mt-2">
+                          <Input
+                            value={vendorData.physicalPerson.idDocumentOther}
+                            onChange={(e) => handleInputChange('physicalPerson', 'idDocumentOther', e.target.value)}
+                            placeholder="Précisez le type de pièce d'identité"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="idNumber">Numéro de pièce d'identité</Label>
@@ -375,15 +408,13 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                         placeholder="Numéro SIRET"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="companyCountryOrigin">Pays d'origine</Label>
-                      <Input
-                        id="companyCountryOrigin"
-                        value={vendorData.legalEntity.countryOrigin}
-                        onChange={(e) => handleInputChange('legalEntity', 'countryOrigin', e.target.value)}
-                        placeholder="Pays d'origine de l'entreprise"
-                      />
-                    </div>
+                    <CountryAutocomplete
+                      id="companyCountryOrigin"
+                      label="Pays d'origine"
+                      value={vendorData.legalEntity.countryOrigin}
+                      onChange={(value) => handleInputChange('legalEntity', 'countryOrigin', value)}
+                      placeholder="Commencez à taper pour voir les suggestions..."
+                    />
                     <div>
                       <Label htmlFor="companyPhone">Téléphone</Label>
                       <Input
@@ -477,7 +508,7 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => removeFile(index)}
+                          onClick={() => removeFile(index, 'identity')}
                         >
                           Supprimer
                         </Button>
@@ -499,35 +530,93 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
             Vérifications Officielles
           </CardTitle>
           <CardDescription>
-            Liens vers les sites officiels pour les vérifications
+            Liens vers les sites officiels pour les vérifications et capture d'écran
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
-                <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
+                  <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
               </div>
-              <Button variant="outline" asChild>
-                <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Accéder
-                </a>
-              </Button>
+              <div>
+                <Label htmlFor="sanctionsUpload">Capture d'écran des vérifications</Label>
+                <Input
+                  id="sanctionsUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleSanctionsUpload}
+                  className="mt-2"
+                />
+                {sanctionsScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {sanctionsScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'sanctions')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
-                <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
+                  <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
               </div>
-              <Button variant="outline" asChild>
-                <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Accéder
-                </a>
-              </Button>
+              <div>
+                <Label htmlFor="gafiUpload">Capture d'écran GAFI</Label>
+                <Input
+                  id="gafiUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleGafiUpload}
+                  className="mt-2"
+                />
+                {gafiScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {gafiScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'gafi')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -552,7 +641,7 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                   <TableHead>Critère d'évaluation</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Niveau de risque</TableHead>
-                  <TableHead className="text-center">Oui/Non</TableHead>
+                  <TableHead className="text-center">Réponse</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -570,10 +659,28 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Checkbox
-                        checked={checks[question.id as keyof typeof checks]}
-                        onCheckedChange={(checked) => handleCheck(question.id, checked as boolean)}
-                      />
+                      <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`${question.id}-oui`}
+                            checked={checks[question.id as keyof typeof checks]}
+                            onCheckedChange={(checked) => handleCheck(question.id, checked as boolean)}
+                          />
+                          <Label htmlFor={`${question.id}-oui`} className="text-sm font-medium">
+                            Oui
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`${question.id}-non`}
+                            checked={!checks[question.id as keyof typeof checks]}
+                            onCheckedChange={(checked) => handleCheck(question.id, !(checked as boolean))}
+                          />
+                          <Label htmlFor={`${question.id}-non`} className="text-sm font-medium">
+                            Non
+                          </Label>
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

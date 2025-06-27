@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Shield, Users, Building, Coins, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import VendorAssessment from "@/components/VendorAssessment";
 import AcquirerAssessment from "@/components/AcquirerAssessment";
@@ -15,6 +17,9 @@ const Index = () => {
     acquirer: { score: 0, level: 'Faible' },
     fundOrigin: { score: 0, level: 'Faible' }
   });
+
+  const [transactionType, setTransactionType] = useState('');
+  const [propertyType, setPropertyType] = useState('');
 
   const updateAssessment = (type: string, score: number, level: string) => {
     setAssessments(prev => ({
@@ -33,11 +38,59 @@ const Index = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-4xl font-bold text-gray-900">TRACKFIN</h1>
+            <h1 className="text-4xl font-bold text-gray-900 tracking-widest">T R A C F I N</h1>
           </div>
           <p className="text-xl text-gray-600 mb-2">Lutte contre le blanchiment des capitaux</p>
           <p className="text-lg text-gray-500">Évaluation des risques et classification</p>
         </div>
+
+        {/* Transaction and Property Selection */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Informations de la Transaction
+            </CardTitle>
+            <CardDescription>
+              Sélectionnez le type de transaction et les caractéristiques du bien
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="transactionType">Type de transaction</Label>
+                <Select value={transactionType} onValueChange={setTransactionType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez le type de transaction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vente">Vente</SelectItem>
+                    <SelectItem value="location">Location</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="propertyType">Type de bien</Label>
+                <Select value={propertyType} onValueChange={setPropertyType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez le type de bien" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="maison">Maison</SelectItem>
+                    <SelectItem value="appartement">Appartement</SelectItem>
+                    <SelectItem value="garage">Garage</SelectItem>
+                    <SelectItem value="commerce">Commerce</SelectItem>
+                    <SelectItem value="terrain">Terrain</SelectItem>
+                    <SelectItem value="bureau">Bureau</SelectItem>
+                    <SelectItem value="entrepot">Entrepôt</SelectItem>
+                    <SelectItem value="autre">Autre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Risk Overview */}
         <Card className="mb-8 border-2">
