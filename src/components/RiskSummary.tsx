@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toast } from "sonner";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface Assessment {
   score: number;
@@ -25,7 +27,7 @@ interface RiskSummaryProps {
 }
 
 const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps) => {
-  const [documentInfo, setDocumentInfo] = useState({
+  const [documentInfo, setDocumentInfo] = useLocalStorage('riskSummaryDocumentInfo', {
     date: new Date().toISOString().split('T')[0],
     location: '',
     advisorSignature: '',
@@ -81,7 +83,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
   };
 
   const handleSaveDocument = () => {
-    // Sauvegarder en tant que fichier JSON
     const documentData = {
       assessments,
       totalScore,
@@ -93,7 +94,7 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
     const dataStr = JSON.stringify(documentData, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = `tracfin_evaluation_${new Date().toISOString().split('T')[0]}.json';
+    const exportFileDefaultName = `tracfin_evaluation_${new Date().toISOString().split('T')[0]}.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -116,10 +117,12 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        allowTaint: true
+        allowTaint: true,
+        height: element.scrollHeight,
+        width: element.scrollWidth
       });
       
-      const imgData = canvas.getImageData(0, 0, canvas.width, canvas.height);
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -130,7 +133,7 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       const imgX = (pdfWidth - imgWidth * ratio) / 2;
       const imgY = 30;
 
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       
       const fileName = `TRACFIN_Evaluation_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
@@ -140,6 +143,54 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       console.error('Erreur lors de l\'export PDF:', error);
       toast.error("Erreur lors de l'export PDF. Veuillez réessayer.");
     }
+  };
+
+  const handleSaveAs = () => {
+    const documentData = {
+      assessments,
+      totalScore,
+      overallRisk,
+      documentInfo,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Créer un contenu texte formaté
+    const textContent = `
+TRACFIN - ÉVALUATION DES RISQUES
+================================
+
+Date: ${documentInfo.date}
+Lieu: ${documentInfo.location}
+
+RÉSULTATS DE L'ÉVALUATION
+-------------------------
+Vendeurs: ${assessments.vendor.score}/6 - ${assessments.vendor.level}
+Acquéreurs: ${assessments.acquirer.score}/6 - ${assessments.acquirer.level}
+Provenance des fonds: ${assessments.fundOrigin.score}/6 - ${assessments.fundOrigin.level}
+
+SCORE TOTAL: ${totalScore}/18
+RISQUE GLOBAL: ${overallRisk}
+
+RECOMMANDATION: ${getRecommendation(overallRisk)}
+
+SIGNATURES
+----------
+Conseiller: ${documentInfo.advisorSignature}
+Responsable: ${documentInfo.managerSignature}
+
+Document généré le: ${new Date().toLocaleString('fr-FR')}
+    `.trim();
+    
+    const textBlob = new Blob([textContent], { type: 'text/plain' });
+    const textUrl = URL.createObjectURL(textBlob);
+    
+    const link = document.createElement('a');
+    link.href = textUrl;
+    link.download = `TRACFIN_Evaluation_${documentInfo.date || new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    
+    URL.revokeObjectURL(textUrl);
+    toast.success("Document texte sauvegardé avec succès !");
   };
 
   return (
@@ -238,7 +289,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
           </CardContent>
         </Card>
 
-        {/* Informations du document et signatures */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -251,7 +301,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {/* Date et lieu */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="date">Date de rédaction</Label>
@@ -273,7 +322,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
                 </div>
               </div>
 
-              {/* Signatures */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border-dashed border-2 border-gray-300">
                   <CardHeader className="text-center">
@@ -311,24 +359,19 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Export PDF */}
-              <div className="text-center pt-4">
-                <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
-                  <Download className="h-4 w-4 mr-2" />
-                  Exporter en PDF
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Boutons d'action */}
       <div className="flex justify-center gap-4 pt-4">
         <Button onClick={handleSaveDocument} className="bg-blue-600 hover:bg-blue-700">
           <Save className="h-4 w-4 mr-2" />
-          Enregistrer
+          Enregistrer (JSON)
+        </Button>
+        <Button onClick={handleSaveAs} className="bg-green-600 hover:bg-green-700">
+          <FileText className="h-4 w-4 mr-2" />
+          Enregistrer (Texte)
         </Button>
         <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
           <Download className="h-4 w-4 mr-2" />
