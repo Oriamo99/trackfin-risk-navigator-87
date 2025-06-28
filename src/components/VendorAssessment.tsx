@@ -45,7 +45,7 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
       idDocument: '',
       idDocumentOther: '',
       idNumber: '',
-      countryOrigin: ''
+      fiscalResidence: ''
     },
     // Personne morale
     legalEntity: {
@@ -59,15 +59,29 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
       email: '',
       representativeName: '',
       representativePosition: '',
-      countryOrigin: ''
+      fiscalResidence: ''
     }
   });
 
   const [personType, setPersonType] = useLocalStorage<'physical' | 'legal'>('vendorPersonType', 'physical');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [sanctionsScreenshots, setSanctionsScreenshots] = useState<File[]>([]);
   const [gafiScreenshots, setGafiScreenshots] = useState<File[]>([]);
   const [googleScreenshots, setGoogleScreenshots] = useState<File[]>([]);
+  const [pappersScreenshots, setPappersScreenshots] = useState<File[]>([]);
+  const [ppeScreenshots, setPpeScreenshots] = useState<File[]>([]);
+
+  // Documents avec cases à cocher
+  const [documentChecks, setDocumentChecks] = useLocalStorage('vendorDocumentChecks', {
+    justificatifDomicile: false,
+    titrePropriete: false,
+    pieceIdentite: false
+  });
+
+  const [documentFiles, setDocumentFiles] = useState<{[key: string]: File[]}>({
+    justificatifDomicile: [],
+    titrePropriete: [],
+    pieceIdentite: []
+  });
 
   const questions = [
     {
@@ -159,9 +173,23 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     }));
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDocumentCheck = (docType: string, checked: boolean) => {
+    setDocumentChecks(prev => ({ ...prev, [docType]: checked }));
+  };
+
+  const handleDocumentUpload = (docType: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    setUploadedFiles(prev => [...prev, ...files]);
+    setDocumentFiles(prev => ({
+      ...prev,
+      [docType]: [...prev[docType], ...files]
+    }));
+  };
+
+  const removeDocumentFile = (docType: string, index: number) => {
+    setDocumentFiles(prev => ({
+      ...prev,
+      [docType]: prev[docType].filter((_, i) => i !== index)
+    }));
   };
 
   const handleSanctionsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,20 +207,31 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
     setGoogleScreenshots(prev => [...prev, ...files]);
   };
 
-  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi' | 'google') => {
-    if (type === 'identity') {
-      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    } else if (type === 'sanctions') {
+  const handlePappersUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setPappersScreenshots(prev => [...prev, ...files]);
+  };
+
+  const handlePpeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setPpeScreenshots(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number, type: 'sanctions' | 'gafi' | 'google' | 'pappers' | 'ppe') => {
+    if (type === 'sanctions') {
       setSanctionsScreenshots(prev => prev.filter((_, i) => i !== index));
     } else if (type === 'gafi') {
       setGafiScreenshots(prev => prev.filter((_, i) => i !== index));
-    } else {
+    } else if (type === 'google') {
       setGoogleScreenshots(prev => prev.filter((_, i) => i !== index));
+    } else if (type === 'pappers') {
+      setPappersScreenshots(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setPpeScreenshots(prev => prev.filter((_, i) => i !== index));
     }
   };
 
   const handleSave = () => {
-    // Les données sont automatiquement sauvegardées avec useLocalStorage
     toast.success("Données des vendeurs sauvegardées avec succès !");
   };
 
@@ -293,10 +332,10 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <CountryAutocomplete
-                      id="countryOrigin"
-                      label="Pays d'origine"
-                      value={vendorData.physicalPerson.countryOrigin}
-                      onChange={(value) => handleInputChange('physicalPerson', 'countryOrigin', value)}
+                      id="fiscalResidence"
+                      label="Résidence fiscale"
+                      value={vendorData.physicalPerson.fiscalResidence}
+                      onChange={(value) => handleInputChange('physicalPerson', 'fiscalResidence', value)}
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <div>
@@ -328,21 +367,10 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                           <SelectValue placeholder="Sélectionnez le type de pièce d'identité" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="cni">Carte nationale d'identité</SelectItem>
+                          <SelectItem value="cni">Carte d'identité</SelectItem>
                           <SelectItem value="passeport">Passeport</SelectItem>
-                          <SelectItem value="permis">Permis de conduire</SelectItem>
-                          <SelectItem value="autre">Autre</SelectItem>
                         </SelectContent>
                       </Select>
-                      {vendorData.physicalPerson.idDocument === 'autre' && (
-                        <div className="mt-2">
-                          <Input
-                            value={vendorData.physicalPerson.idDocumentOther}
-                            onChange={(e) => handleInputChange('physicalPerson', 'idDocumentOther', e.target.value)}
-                            placeholder="Précisez le type de pièce d'identité"
-                          />
-                        </div>
-                      )}
                     </div>
                     <div>
                       <Label htmlFor="idNumber">Numéro de pièce d'identité</Label>
@@ -424,10 +452,10 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                       />
                     </div>
                     <CountryAutocomplete
-                      id="companyCountryOrigin"
-                      label="Pays d'origine"
-                      value={vendorData.legalEntity.countryOrigin}
-                      onChange={(value) => handleInputChange('legalEntity', 'countryOrigin', value)}
+                      id="companyFiscalResidence"
+                      label="Résidence fiscale"
+                      value={vendorData.legalEntity.fiscalResidence}
+                      onChange={(value) => handleInputChange('legalEntity', 'fiscalResidence', value)}
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <div>
@@ -503,34 +531,53 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
               </Collapsible>
             )}
 
-            {/* Zone de téléchargement de pièces d'identité */}
+            {/* Documents avec cases à cocher */}
             <div>
-              <Label htmlFor="identityUpload">Pièces d'identité et documents</Label>
-              <div className="mt-2">
-                <Input
-                  id="identityUpload"
-                  type="file"
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileUpload}
-                  className="mb-2"
-                />
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="text-sm">{file.name}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeFile(index, 'identity')}
-                        >
-                          Supprimer
-                        </Button>
+              <Label className="text-base font-medium">Documents</Label>
+              <div className="mt-4 space-y-4">
+                {[
+                  { key: 'justificatifDomicile', label: 'Justificatif de domicile' },
+                  { key: 'titrePropriete', label: 'Titre de propriété' },
+                  { key: 'pieceIdentite', label: 'Pièce d\'identité' }
+                ].map((doc) => (
+                  <div key={doc.key} className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={doc.key}
+                        checked={documentChecks[doc.key as keyof typeof documentChecks]}
+                        onCheckedChange={(checked) => handleDocumentCheck(doc.key, checked as boolean)}
+                      />
+                      <Label htmlFor={doc.key}>{doc.label}</Label>
+                    </div>
+                    {documentChecks[doc.key as keyof typeof documentChecks] && (
+                      <div className="ml-6 space-y-2">
+                        <Input
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => handleDocumentUpload(doc.key, e)}
+                          className="mb-2"
+                        />
+                        {documentFiles[doc.key]?.length > 0 && (
+                          <div className="space-y-2">
+                            {documentFiles[doc.key].map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <span className="text-sm">{file.name}</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removeDocumentFile(doc.key, index)}
+                                >
+                                  Supprimer
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           </div>
@@ -675,6 +722,90 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
                 )}
               </div>
             </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">Vérification Pappers</h4>
+                  <p className="text-sm text-gray-600">Informations sur les entreprises françaises</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.pappers.fr/" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
+              </div>
+              <div>
+                <Label htmlFor="pappersUpload">Capture d'écran Pappers</Label>
+                <Input
+                  id="pappersUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handlePappersUpload}
+                  className="mt-2"
+                />
+                {pappersScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {pappersScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'pappers')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-medium">Personne Politiquement Exposée (PPE)</h4>
+                  <p className="text-sm text-gray-600">Liste officielle des PPE (ACPR – Banque de France)</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://acpr.banque-france.fr/liste-des-personnes-politiquement-exposees" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
+              </div>
+              <div>
+                <Label htmlFor="ppeUpload">Capture d'écran PPE</Label>
+                <Input
+                  id="ppeUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handlePpeUpload}
+                  className="mt-2"
+                />
+                {ppeScreenshots.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {ppeScreenshots.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'ppe')}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -764,7 +895,6 @@ const VendorAssessment = ({ onScoreUpdate }: VendorAssessmentProps) => {
         </CardContent>
       </Card>
 
-      {/* Bouton de sauvegarde */}
       <div className="text-center">
         <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
           <Save className="h-4 w-4 mr-2" />
