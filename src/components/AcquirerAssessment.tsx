@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building, AlertCircle, User, Building2, Upload, ExternalLink, Save, FileText, Home, IdCard } from "lucide-react";
+import { Building, AlertCircle, User, Building2, Upload, ExternalLink, Save } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import CountryAutocomplete from "./CountryAutocomplete";
@@ -37,7 +37,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       idNumber: '',
       profession: '',
       income: '',
-      fiscalResidence: ''
+      countryOrigin: ''
     },
     // Personne morale
     legalEntity: {
@@ -53,13 +53,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       activity: '',
       representativeName: '',
       representativePosition: '',
-      fiscalResidence: ''
-    },
-    // Documents
-    documents: {
-      justificatifDomicile: false,
-      titrePropriete: false,
-      pieceIdentite: false
+      countryOrigin: ''
     }
   });
 
@@ -79,12 +73,6 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
   const [sanctionsScreenshots, setSanctionsScreenshots] = useState<File[]>([]);
   const [gafiScreenshots, setGafiScreenshots] = useState<File[]>([]);
   const [googleScreenshots, setGoogleScreenshots] = useState<File[]>([]);
-  const [pappersScreenshots, setPappersScreenshots] = useState<File[]>([]);
-  
-  // Documents files
-  const [justificatifFiles, setJustificatifFiles] = useState<File[]>([]);
-  const [titreFiles, setTitreFiles] = useState<File[]>([]);
-  const [identiteFiles, setIdentiteFiles] = useState<File[]>([]);
 
   const questions = [
     {
@@ -176,16 +164,6 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
     }));
   };
 
-  const handleDocumentCheck = (docType: 'justificatifDomicile' | 'titrePropriete' | 'pieceIdentite', checked: boolean) => {
-    setAcquirerData(prev => ({
-      ...prev,
-      documents: {
-        ...prev.documents,
-        [docType]: checked
-      }
-    }));
-  };
-
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     setUploadedFiles(prev => [...prev, ...files]);
@@ -206,43 +184,15 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
     setGoogleScreenshots(prev => [...prev, ...files]);
   };
 
-  const handlePappersUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setPappersScreenshots(prev => [...prev, ...files]);
-  };
-
-  const handleJustificatifUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setJustificatifFiles(prev => [...prev, ...files]);
-  };
-
-  const handleTitreUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setTitreFiles(prev => [...prev, ...files]);
-  };
-
-  const handleIdentiteUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setIdentiteFiles(prev => [...prev, ...files]);
-  };
-
-  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi' | 'google' | 'pappers' | 'justificatif' | 'titre' | 'identite') => {
+  const removeFile = (index: number, type: 'identity' | 'sanctions' | 'gafi' | 'google') => {
     if (type === 'identity') {
       setUploadedFiles(prev => prev.filter((_, i) => i !== index));
     } else if (type === 'sanctions') {
       setSanctionsScreenshots(prev => prev.filter((_, i) => i !== index));
     } else if (type === 'gafi') {
       setGafiScreenshots(prev => prev.filter((_, i) => i !== index));
-    } else if (type === 'google') {
+    } else {
       setGoogleScreenshots(prev => prev.filter((_, i) => i !== index));
-    } else if (type === 'pappers') {
-      setPappersScreenshots(prev => prev.filter((_, i) => i !== index));
-    } else if (type === 'justificatif') {
-      setJustificatifFiles(prev => prev.filter((_, i) => i !== index));
-    } else if (type === 'titre') {
-      setTitreFiles(prev => prev.filter((_, i) => i !== index));
-    } else if (type === 'identite') {
-      setIdentiteFiles(prev => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -256,13 +206,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
   return (
     <div className="space-y-6">
       {/* Formulaire de saisie */}
-      <Card className="bg-gray-900 border-gray-700">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
+          <CardTitle className="flex items-center gap-2">
             <Building className="h-5 w-5" />
             Informations de l'Acquéreur
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription>
             Saisie des informations détaillées de l'acquéreur
           </CardDescription>
         </CardHeader>
@@ -276,7 +226,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                   checked={personType === 'physical'}
                   onCheckedChange={() => setPersonType('physical')}
                 />
-                <Label htmlFor="acquirer-physical" className="flex items-center gap-2 text-white">
+                <Label htmlFor="acquirer-physical" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   Personne physique
                 </Label>
@@ -287,60 +237,56 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                   checked={personType === 'legal'}
                   onCheckedChange={() => setPersonType('legal')}
                 />
-                <Label htmlFor="acquirer-legal" className="flex items-center gap-2 text-white">
+                <Label htmlFor="acquirer-legal" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   Personne morale
                 </Label>
               </div>
             </div>
 
-            {/* Formulaire personne physique avec modifications demandées */}
+            {/* Formulaire personne physique */}
             {personType === 'physical' && (
               <Collapsible defaultOpen>
-                <CollapsibleTrigger className="flex items-center gap-2 font-medium text-left w-full text-white">
+                <CollapsibleTrigger className="flex items-center gap-2 font-medium text-left w-full">
                   <User className="h-4 w-4" />
                   Détails de la personne physique
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-4 mt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="acq-lastName" className="text-white">Nom de famille *</Label>
+                      <Label htmlFor="acq-lastName">Nom de famille *</Label>
                       <Input
                         id="acq-lastName"
                         value={acquirerData.physicalPerson.lastName}
                         onChange={(e) => handleInputChange('physicalPerson', 'lastName', e.target.value)}
                         placeholder="Nom de famille"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-firstName" className="text-white">Prénom *</Label>
+                      <Label htmlFor="acq-firstName">Prénom *</Label>
                       <Input
                         id="acq-firstName"
                         value={acquirerData.physicalPerson.firstName}
                         onChange={(e) => handleInputChange('physicalPerson', 'firstName', e.target.value)}
                         placeholder="Prénom"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-birthDate" className="text-white">Date de naissance</Label>
+                      <Label htmlFor="acq-birthDate">Date de naissance</Label>
                       <Input
                         id="acq-birthDate"
                         type="date"
                         value={acquirerData.physicalPerson.birthDate}
                         onChange={(e) => handleInputChange('physicalPerson', 'birthDate', e.target.value)}
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-birthPlace" className="text-white">Lieu de naissance</Label>
+                      <Label htmlFor="acq-birthPlace">Lieu de naissance</Label>
                       <Input
                         id="acq-birthPlace"
                         value={acquirerData.physicalPerson.birthPlace}
                         onChange={(e) => handleInputChange('physicalPerson', 'birthPlace', e.target.value)}
                         placeholder="Lieu de naissance"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <CountryAutocomplete
@@ -351,45 +297,45 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <CountryAutocomplete
-                      id="acq-fiscalResidence"
-                      label="Résidence fiscale"
-                      value={acquirerData.physicalPerson.fiscalResidence}
-                      onChange={(value) => handleInputChange('physicalPerson', 'fiscalResidence', value)}
+                      id="acq-countryOrigin"
+                      label="Pays d'origine"
+                      value={acquirerData.physicalPerson.countryOrigin}
+                      onChange={(value) => handleInputChange('physicalPerson', 'countryOrigin', value)}
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <div>
-                      <Label htmlFor="acq-phone" className="text-white">Téléphone</Label>
+                      <Label htmlFor="acq-phone">Téléphone</Label>
                       <Input
                         id="acq-phone"
                         value={acquirerData.physicalPerson.phone}
                         onChange={(e) => handleInputChange('physicalPerson', 'phone', e.target.value)}
                         placeholder="Numéro de téléphone"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-email" className="text-white">Email</Label>
+                      <Label htmlFor="acq-email">Email</Label>
                       <Input
                         id="acq-email"
                         type="email"
                         value={acquirerData.physicalPerson.email}
                         onChange={(e) => handleInputChange('physicalPerson', 'email', e.target.value)}
                         placeholder="Adresse email"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-idDocument" className="text-white">Type de pièce d'identité</Label>
+                      <Label htmlFor="acq-idDocument">Type de pièce d'identité</Label>
                       <Select 
                         value={acquirerData.physicalPerson.idDocument} 
                         onValueChange={(value) => handleInputChange('physicalPerson', 'idDocument', value)}
                       >
-                        <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                        <SelectTrigger>
                           <SelectValue placeholder="Sélectionnez le type de pièce d'identité" />
                         </SelectTrigger>
-                        <SelectContent className="bg-gray-800 border-gray-600">
-                          <SelectItem value="cni" className="text-white">Carte d'identité</SelectItem>
-                          <SelectItem value="passeport" className="text-white">Passeport</SelectItem>
+                        <SelectContent>
+                          <SelectItem value="cni">Carte nationale d'identité</SelectItem>
+                          <SelectItem value="passeport">Passeport</SelectItem>
+                          <SelectItem value="permis">Permis de conduire</SelectItem>
+                          <SelectItem value="autre">Autre</SelectItem>
                         </SelectContent>
                       </Select>
                       {acquirerData.physicalPerson.idDocument === 'autre' && (
@@ -398,50 +344,45 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                             value={acquirerData.physicalPerson.idDocumentOther}
                             onChange={(e) => handleInputChange('physicalPerson', 'idDocumentOther', e.target.value)}
                             placeholder="Précisez le type de pièce d'identité"
-                            className="bg-gray-800 border-gray-600 text-white"
                           />
                         </div>
                       )}
                     </div>
                     <div>
-                      <Label htmlFor="acq-idNumber" className="text-white">Numéro de pièce d'identité</Label>
+                      <Label htmlFor="acq-idNumber">Numéro de pièce d'identité</Label>
                       <Input
                         id="acq-idNumber"
                         value={acquirerData.physicalPerson.idNumber}
                         onChange={(e) => handleInputChange('physicalPerson', 'idNumber', e.target.value)}
                         placeholder="Numéro de la pièce d'identité"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-profession" className="text-white">Profession</Label>
+                      <Label htmlFor="acq-profession">Profession</Label>
                       <Input
                         id="acq-profession"
                         value={acquirerData.physicalPerson.profession}
                         onChange={(e) => handleInputChange('physicalPerson', 'profession', e.target.value)}
                         placeholder="Profession"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-income" className="text-white">Revenus annuels</Label>
+                      <Label htmlFor="acq-income">Revenus annuels</Label>
                       <Input
                         id="acq-income"
                         value={acquirerData.physicalPerson.income}
                         onChange={(e) => handleInputChange('physicalPerson', 'income', e.target.value)}
                         placeholder="Revenus annuels estimés"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="acq-address" className="text-white">Adresse complète</Label>
+                    <Label htmlFor="acq-address">Adresse complète</Label>
                     <Textarea
                       id="acq-address"
                       value={acquirerData.physicalPerson.address}
                       onChange={(e) => handleInputChange('physicalPerson', 'address', e.target.value)}
                       placeholder="Adresse complète"
-                      className="bg-gray-800 border-gray-600 text-white"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -453,23 +394,21 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <div>
-                      <Label htmlFor="acq-city" className="text-white">Ville</Label>
+                      <Label htmlFor="acq-city">Ville</Label>
                       <Input
                         id="acq-city"
                         value={acquirerData.physicalPerson.city}
                         onChange={(e) => handleInputChange('physicalPerson', 'city', e.target.value)}
                         placeholder="Ville"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-postalCode" className="text-white">Code postal</Label>
+                      <Label htmlFor="acq-postalCode">Code postal</Label>
                       <Input
                         id="acq-postalCode"
                         value={acquirerData.physicalPerson.postalCode}
                         onChange={(e) => handleInputChange('physicalPerson', 'postalCode', e.target.value)}
                         placeholder="Code postal"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                   </div>
@@ -477,92 +416,85 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               </Collapsible>
             )}
 
-            {/* Formulaire personne morale avec modifications */}
+            {/* Formulaire personne morale */}
             {personType === 'legal' && (
               <Collapsible defaultOpen>
-                <CollapsibleTrigger className="flex items-center gap-2 font-medium text-left w-full text-white">
+                <CollapsibleTrigger className="flex items-center gap-2 font-medium text-left w-full">
                   <Building2 className="h-4 w-4" />
                   Détails de la personne morale
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-4 mt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="acq-companyName" className="text-white">Raison sociale *</Label>
+                      <Label htmlFor="acq-companyName">Raison sociale *</Label>
                       <Input
                         id="acq-companyName"
                         value={acquirerData.legalEntity.companyName}
                         onChange={(e) => handleInputChange('legalEntity', 'companyName', e.target.value)}
                         placeholder="Raison sociale"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-legalForm" className="text-white">Forme juridique</Label>
+                      <Label htmlFor="acq-legalForm">Forme juridique</Label>
                       <Input
                         id="acq-legalForm"
                         value={acquirerData.legalEntity.legalForm}
                         onChange={(e) => handleInputChange('legalEntity', 'legalForm', e.target.value)}
                         placeholder="SARL, SAS, SA, etc."
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-siret" className="text-white">N° SIRET</Label>
+                      <Label htmlFor="acq-siret">N° SIRET</Label>
                       <Input
                         id="acq-siret"
                         value={acquirerData.legalEntity.siret}
                         onChange={(e) => handleInputChange('legalEntity', 'siret', e.target.value)}
                         placeholder="Numéro SIRET"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-activity" className="text-white">Secteur d'activité</Label>
+                      <Label htmlFor="acq-activity">Secteur d'activité</Label>
                       <Input
                         id="acq-activity"
                         value={acquirerData.legalEntity.activity}
                         onChange={(e) => handleInputChange('legalEntity', 'activity', e.target.value)}
                         placeholder="Secteur d'activité"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <CountryAutocomplete
-                      id="acq-fiscalResidence"
-                      label="Résidence fiscale"
-                      value={acquirerData.legalEntity.fiscalResidence}
-                      onChange={(value) => handleInputChange('legalEntity', 'fiscalResidence', value)}
+                      id="acq-companyCountryOrigin"
+                      label="Pays d'origine"
+                      value={acquirerData.legalEntity.countryOrigin}
+                      onChange={(value) => handleInputChange('legalEntity', 'countryOrigin', value)}
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <div>
-                      <Label htmlFor="acq-companyPhone" className="text-white">Téléphone</Label>
+                      <Label htmlFor="acq-companyPhone">Téléphone</Label>
                       <Input
                         id="acq-companyPhone"
                         value={acquirerData.legalEntity.phone}
                         onChange={(e) => handleInputChange('legalEntity', 'phone', e.target.value)}
                         placeholder="Numéro de téléphone"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-companyEmail" className="text-white">Email</Label>
+                      <Label htmlFor="acq-companyEmail">Email</Label>
                       <Input
                         id="acq-companyEmail"
                         type="email"
                         value={acquirerData.legalEntity.email}
                         onChange={(e) => handleInputChange('legalEntity', 'email', e.target.value)}
                         placeholder="Adresse email"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="acq-companyAddress" className="text-white">Adresse du siège social</Label>
+                    <Label htmlFor="acq-companyAddress">Adresse du siège social</Label>
                     <Textarea
                       id="acq-companyAddress"
                       value={acquirerData.legalEntity.address}
                       onChange={(e) => handleInputChange('legalEntity', 'address', e.target.value)}
                       placeholder="Adresse complète du siège social"
-                      className="bg-gray-800 border-gray-600 text-white"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -574,45 +506,41 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                       placeholder="Commencez à taper pour voir les suggestions..."
                     />
                     <div>
-                      <Label htmlFor="acq-companyCity" className="text-white">Ville</Label>
+                      <Label htmlFor="acq-companyCity">Ville</Label>
                       <Input
                         id="acq-companyCity"
                         value={acquirerData.legalEntity.city}
                         onChange={(e) => handleInputChange('legalEntity', 'city', e.target.value)}
                         placeholder="Ville"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-companyPostalCode" className="text-white">Code postal</Label>
+                      <Label htmlFor="acq-companyPostalCode">Code postal</Label>
                       <Input
                         id="acq-companyPostalCode"
                         value={acquirerData.legalEntity.postalCode}
                         onChange={(e) => handleInputChange('legalEntity', 'postalCode', e.target.value)}
                         placeholder="Code postal"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="acq-representativeName" className="text-white">Représentant légal</Label>
+                      <Label htmlFor="acq-representativeName">Représentant légal</Label>
                       <Input
                         id="acq-representativeName"
                         value={acquirerData.legalEntity.representativeName}
                         onChange={(e) => handleInputChange('legalEntity', 'representativeName', e.target.value)}
                         placeholder="Nom du représentant légal"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="acq-representativePosition" className="text-white">Fonction</Label>
+                      <Label htmlFor="acq-representativePosition">Fonction</Label>
                       <Input
                         id="acq-representativePosition"
                         value={acquirerData.legalEntity.representativePosition}
                         onChange={(e) => handleInputChange('legalEntity', 'representativePosition', e.target.value)}
                         placeholder="Fonction du représentant"
-                        className="bg-gray-800 border-gray-600 text-white"
                       />
                     </div>
                   </div>
@@ -620,127 +548,32 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               </Collapsible>
             )}
 
-            {/* Zone de documents avec cases à cocher - même structure que VendorAssessment */}
+            {/* Zone de téléchargement de pièces d'identité */}
             <div>
-              <Label className="text-white text-lg font-medium">Pièces d'identité et documents</Label>
-              <div className="space-y-4 mt-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="acq-justificatifDomicile"
-                    checked={acquirerData.documents.justificatifDomicile}
-                    onCheckedChange={(checked) => handleDocumentCheck('justificatifDomicile', checked as boolean)}
-                  />
-                  <Label htmlFor="acq-justificatifDomicile" className="flex items-center gap-2 text-white">
-                    <Home className="h-4 w-4" />
-                    Justificatif de domicile
-                  </Label>
-                </div>
-                {acquirerData.documents.justificatifDomicile && (
-                  <div className="ml-6">
-                    <Input
-                      type="file"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={handleJustificatifUpload}
-                      className="mb-2 bg-gray-800 border-gray-600 text-white"
-                    />
-                    {justificatifFiles.length > 0 && (
-                      <div className="space-y-2">
-                        {justificatifFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                            <span className="text-sm text-white">{file.name}</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeFile(index, 'justificatif')}
-                              className="border-gray-600 text-white hover:bg-gray-700"
-                            >
-                              Supprimer
-                            </Button>
-                          </div>
-                        ))}
+              <Label htmlFor="acq-identityUpload">Pièces d'identité et documents</Label>
+              <div className="mt-2">
+                <Input
+                  id="acq-identityUpload"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileUpload}
+                  className="mb-2"
+                />
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFile(index, 'identity')}
+                        >
+                          Supprimer
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="acq-titrePropriete"
-                    checked={acquirerData.documents.titrePropriete}
-                    onCheckedChange={(checked) => handleDocumentCheck('titrePropriete', checked as boolean)}
-                  />
-                  <Label htmlFor="acq-titrePropriete" className="flex items-center gap-2 text-white">
-                    <FileText className="h-4 w-4" />
-                    Titre de propriété
-                  </Label>
-                </div>
-                {acquirerData.documents.titrePropriete && (
-                  <div className="ml-6">
-                    <Input
-                      type="file"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={handleTitreUpload}
-                      className="mb-2 bg-gray-800 border-gray-600 text-white"
-                    />
-                    {titreFiles.length > 0 && (
-                      <div className="space-y-2">
-                        {titreFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                            <span className="text-sm text-white">{file.name}</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeFile(index, 'titre')}
-                              className="border-gray-600 text-white hover:bg-gray-700"
-                            >
-                              Supprimer
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="acq-pieceIdentite"
-                    checked={acquirerData.documents.pieceIdentite}
-                    onCheckedChange={(checked) => handleDocumentCheck('pieceIdentite', checked as boolean)}
-                  />
-                  <Label htmlFor="acq-pieceIdentite" className="flex items-center gap-2 text-white">
-                    <IdCard className="h-4 w-4" />
-                    Pièce d'identité
-                  </Label>
-                </div>
-                {acquirerData.documents.pieceIdentite && (
-                  <div className="ml-6">
-                    <Input
-                      type="file"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={handleIdentiteUpload}
-                      className="mb-2 bg-gray-800 border-gray-600 text-white"
-                    />
-                    {identiteFiles.length > 0 && (
-                      <div className="space-y-2">
-                        {identiteFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                            <span className="text-sm text-white">{file.name}</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeFile(index, 'identite')}
-                              className="border-gray-600 text-white hover:bg-gray-700"
-                            >
-                              Supprimer
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
@@ -749,26 +582,26 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
         </CardContent>
       </Card>
 
-      {/* Liens vers les sites officiels avec ajout de Pappers */}
-      <Card className="bg-gray-900 border-gray-700">
+      {/* Liens vers les sites officiels */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
+          <CardTitle className="flex items-center gap-2">
             <ExternalLink className="h-5 w-5" />
             Vérifications Officielles
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription>
             Liens vers les sites officiels pour les vérifications et capture d'écran
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="border rounded-lg p-4 border-gray-600">
+            <div className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="font-medium text-white">Gel des Avoirs - DG Trésor</h4>
-                  <p className="text-sm text-gray-400">Vérification des listes de sanctions internationales</p>
+                  <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
+                  <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
                 </div>
-                <Button variant="outline" asChild className="border-gray-600 text-white hover:bg-gray-700">
+                <Button variant="outline" asChild>
                   <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Accéder
@@ -776,25 +609,24 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                 </Button>
               </div>
               <div>
-                <Label htmlFor="acq-sanctionsUpload" className="text-white">Capture d'écran des vérifications</Label>
+                <Label htmlFor="acq-sanctionsUpload">Capture d'écran des vérifications</Label>
                 <Input
                   id="acq-sanctionsUpload"
                   type="file"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleSanctionsUpload}
-                  className="mt-2 bg-gray-800 border-gray-600 text-white"
+                  className="mt-2"
                 />
                 {sanctionsScreenshots.length > 0 && (
                   <div className="space-y-2 mt-2">
                     {sanctionsScreenshots.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                        <span className="text-sm text-white">{file.name}</span>
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => removeFile(index, 'sanctions')}
-                          className="border-gray-600 text-white hover:bg-gray-700"
                         >
                           Supprimer
                         </Button>
@@ -805,13 +637,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               </div>
             </div>
             
-            <div className="border rounded-lg p-4 border-gray-600">
+            <div className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="font-medium text-white">GAFI - Pays à Haut Risque</h4>
-                  <p className="text-sm text-gray-400">Liste noire et grise du GAFI</p>
+                  <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
+                  <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
                 </div>
-                <Button variant="outline" asChild className="border-gray-600 text-white hover:bg-gray-700">
+                <Button variant="outline" asChild>
                   <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Accéder
@@ -819,25 +651,24 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                 </Button>
               </div>
               <div>
-                <Label htmlFor="acq-gafiUpload" className="text-white">Capture d'écran GAFI</Label>
+                <Label htmlFor="acq-gafiUpload">Capture d'écran GAFI</Label>
                 <Input
                   id="acq-gafiUpload"
                   type="file"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleGafiUpload}
-                  className="mt-2 bg-gray-800 border-gray-600 text-white"
+                  className="mt-2"
                 />
                 {gafiScreenshots.length > 0 && (
                   <div className="space-y-2 mt-2">
                     {gafiScreenshots.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                        <span className="text-sm text-white">{file.name}</span>
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => removeFile(index, 'gafi')}
-                          className="border-gray-600 text-white hover:bg-gray-700"
                         >
                           Supprimer
                         </Button>
@@ -848,13 +679,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               </div>
             </div>
 
-            <div className="border rounded-lg p-4 border-gray-600">
+            <div className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="font-medium text-white">Google Verification</h4>
-                  <p className="text-sm text-gray-400">Vérification Google</p>
+                  <h4 className="font-medium">Google Verification</h4>
+                  <p className="text-sm text-gray-600">Vérification Google</p>
                 </div>
-                <Button variant="outline" asChild className="border-gray-600 text-white hover:bg-gray-700">
+                <Button variant="outline" asChild>
                   <a href="https://www.google.com/search?q=google+verification" target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Accéder
@@ -862,68 +693,24 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                 </Button>
               </div>
               <div>
-                <Label htmlFor="acq-googleUpload" className="text-white">Capture d'écran Google</Label>
+                <Label htmlFor="acq-googleUpload">Capture d'écran Google</Label>
                 <Input
                   id="acq-googleUpload"
                   type="file"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleGoogleUpload}
-                  className="mt-2 bg-gray-800 border-gray-600 text-white"
+                  className="mt-2"
                 />
                 {googleScreenshots.length > 0 && (
                   <div className="space-y-2 mt-2">
                     {googleScreenshots.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                        <span className="text-sm text-white">{file.name}</span>
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{file.name}</span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => removeFile(index, 'google')}
-                          className="border-gray-600 text-white hover:bg-gray-700"
-                        >
-                          Supprimer
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-4 border-gray-600">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h4 className="font-medium text-white">Vérification Pappers</h4>
-                  <p className="text-sm text-gray-400">Vérification des informations d'entreprise</p>
-                </div>
-                <Button variant="outline" asChild className="border-gray-600 text-white hover:bg-gray-700">
-                  <a href="https://www.pappers.fr/" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Accéder
-                  </a>
-                </Button>
-              </div>
-              <div>
-                <Label htmlFor="acq-pappersUpload" className="text-white">Capture d'écran Pappers</Label>
-                <Input
-                  id="acq-pappersUpload"
-                  type="file"
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handlePappersUpload}
-                  className="mt-2 bg-gray-800 border-gray-600 text-white"
-                />
-                {pappersScreenshots.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {pappersScreenshots.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                        <span className="text-sm text-white">{file.name}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeFile(index, 'pappers')}
-                          className="border-gray-600 text-white hover:bg-gray-700"
                         >
                           Supprimer
                         </Button>
@@ -938,13 +725,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
       </Card>
 
       {/* Évaluation des risques */}
-      <Card className="bg-gray-900 border-gray-700">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
+          <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5" />
             Évaluation des Risques - Acquéreurs
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription>
             Analyse des risques liés aux acquéreurs impliqués dans la transaction
           </CardDescription>
         </CardHeader>
@@ -962,8 +749,8 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               <TableBody>
                 {questions.map((question) => (
                   <TableRow key={question.id}>
-                    <TableCell className="font-medium text-white">{question.label}</TableCell>
-                    <TableCell className="text-sm text-gray-400">{question.description}</TableCell>
+                    <TableCell className="font-medium">{question.label}</TableCell>
+                    <TableCell className="text-sm text-gray-600">{question.description}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         question.risk === 'Faible' ? 'bg-green-100 text-green-800' :
@@ -981,7 +768,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                             checked={checks[question.id as keyof typeof checks]}
                             onCheckedChange={(checked) => handleCheck(question.id, checked as boolean)}
                           />
-                          <Label htmlFor={`acq-${question.id}-oui`} className="text-sm font-medium text-white">
+                          <Label htmlFor={`acq-${question.id}-oui`} className="text-sm font-medium">
                             Oui
                           </Label>
                         </div>
@@ -991,7 +778,7 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
                             checked={!checks[question.id as keyof typeof checks]}
                             onCheckedChange={(checked) => handleCheck(question.id, !(checked as boolean))}
                           />
-                          <Label htmlFor={`acq-${question.id}-non`} className="text-sm font-medium text-white">
+                          <Label htmlFor={`acq-${question.id}-non`} className="text-sm font-medium">
                             Non
                           </Label>
                         </div>
@@ -1002,13 +789,13 @@ const AcquirerAssessment = ({ onScoreUpdate }: AcquirerAssessmentProps) => {
               </TableBody>
             </Table>
 
-            <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-blue-400" />
-                <span className="font-medium text-white">Score de risque acquéreur:</span>
+                <AlertCircle className="h-5 w-5 text-blue-600" />
+                <span className="font-medium">Score de risque acquéreur:</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-2xl font-bold text-white">{score}/20</span>
+                <span className="text-2xl font-bold">{score}/20</span>
                 <span className={`px-3 py-1 rounded-full font-medium ${
                   riskLevel === 'Faible' ? 'bg-green-100 text-green-800' :
                   riskLevel === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
