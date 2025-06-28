@@ -1,7 +1,8 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Save, Database } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Database } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -96,297 +97,173 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
     toast.success("Enregistrement final effectué avec succès ! Toutes les données ont été sauvegardées.");
   };
 
-  const generateCompleteTextContent = () => {
-    const vendorData = globalData.vendor;
-    const acquirerData = globalData.acquirer;
-    const fundData = globalData.fundOrigin;
-    
-    return `
-TRACFIN - ÉVALUATION COMPLÈTE DES RISQUES
-========================================
-
-Date de génération: ${new Date().toLocaleString('fr-FR')}
-Date de rédaction: ${documentInfo.date}
-Lieu: ${documentInfo.location}
-
-INFORMATIONS DE TRANSACTION
----------------------------
-Type de transaction: ${globalData.transactionInfo?.transactionType || 'Non renseigné'}
-Type de bien: ${globalData.transactionInfo?.propertyType || 'Non renseigné'}
-
-=== SECTION VENDEURS ===
------------------------
-Informations vendeur:
-${Object.entries(vendorData.vendorInfo || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Évaluation des risques vendeur:
-${Object.entries(vendorData.riskAssessment || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Vérification officielle vendeur:
-${Object.entries(vendorData.officialVerification || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Fichiers téléchargés vendeur: ${vendorData.uploadedFiles?.length || 0} fichier(s)
-
-=== SECTION ACQUÉREURS ===
--------------------------
-Informations acquéreur:
-${Object.entries(acquirerData.acquirerInfo || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Évaluation des risques acquéreur:
-${Object.entries(acquirerData.riskAssessment || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Vérification officielle acquéreur:
-${Object.entries(acquirerData.officialVerification || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Fichiers téléchargés acquéreur: ${acquirerData.uploadedFiles?.length || 0} fichier(s)
-
-=== SECTION PROVENANCE DES FONDS ===
------------------------------------
-Informations provenance des fonds:
-${Object.entries(fundData.fundOriginInfo || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Évaluation des risques provenance:
-${Object.entries(fundData.riskAssessment || {}).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
-Fichiers téléchargés provenance: ${fundData.uploadedFiles?.length || 0} fichier(s)
-
-=== RÉSUMÉ DE L'ÉVALUATION ===
------------------------------
-Vendeurs: ${assessments.vendor.score}/6 - ${assessments.vendor.level}
-Acquéreurs: ${assessments.acquirer.score}/6 - ${assessments.acquirer.level}
-Provenance des fonds: ${assessments.fundOrigin.score}/6 - ${assessments.fundOrigin.level}
-
-SCORE TOTAL: ${totalScore}/18
-RISQUE GLOBAL: ${overallRisk}
-
-RECOMMANDATION: ${getRecommendation(overallRisk)}
-
-SIGNATURES
-----------
-Conseiller: ${documentInfo.advisorSignature}
-Responsable: ${documentInfo.managerSignature}
-
-RÉSUMÉ DES FICHIERS TÉLÉCHARGÉS
-------------------------------
-Total fichiers vendeur: ${vendorData.uploadedFiles?.length || 0}
-Total fichiers acquéreur: ${acquirerData.uploadedFiles?.length || 0}
-Total fichiers provenance: ${fundData.uploadedFiles?.length || 0}
-Total général: ${(vendorData.uploadedFiles?.length || 0) + (acquirerData.uploadedFiles?.length || 0) + (fundData.uploadedFiles?.length || 0)}
-
-Document généré le: ${new Date().toLocaleString('fr-FR')}
-    `.trim();
-  };
-
-  const handleCompleteTextExport = () => {
-    const completeContent = generateCompleteTextContent();
-    const textBlob = new Blob([completeContent], { type: 'text/plain;charset=utf-8' });
-    const textUrl = URL.createObjectURL(textBlob);
-    
-    const link = document.createElement('a');
-    link.href = textUrl;
-    link.download = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.txt`;
-    link.click();
-    
-    URL.revokeObjectURL(textUrl);
-    toast.success("Export texte complet terminé avec succès !");
-  };
-
   const handleCompletePDFExport = async () => {
     try {
       toast.info("Génération du PDF complet en cours... Cela peut prendre quelques instants.");
       
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - 2 * margin;
+      // Capturer le contenu entier de la page visible
+      const bodyElement = document.body;
       
-      // Page de titre
-      pdf.setFontSize(20);
-      pdf.text('TRACFIN - ÉVALUATION COMPLÈTE', pageWidth / 2, 30, { align: 'center' });
-      pdf.setFontSize(16);
-      pdf.text('LUTTE CONTRE LE BLANCHIMENT', pageWidth / 2, 45, { align: 'center' });
-      
-      pdf.setFontSize(12);
-      pdf.text(`Date: ${documentInfo.date}`, margin, 70);
-      pdf.text(`Lieu: ${documentInfo.location}`, margin, 85);
-      pdf.text(`Risque Global: ${overallRisk}`, margin, 100);
-      pdf.text(`Score Total: ${totalScore}/18`, margin, 115);
-      
-      // Résumé des évaluations
-      pdf.setFontSize(14);
-      pdf.text('RÉSUMÉ DES ÉVALUATIONS', margin, 140);
-      pdf.setFontSize(10);
-      let yPos = 155;
-      
-      categories.forEach((category) => {
-        pdf.text(`${category.name}: ${category.score}/6 - ${category.level}`, margin, yPos);
-        yPos += 15;
-      });
-      
-      // Recommandation
-      yPos += 10;
-      pdf.setFontSize(12);
-      pdf.text('RECOMMANDATION:', margin, yPos);
-      yPos += 15;
-      pdf.setFontSize(10);
-      const recommendation = getRecommendation(overallRisk);
-      const splitRecommendation = pdf.splitTextToSize(recommendation, contentWidth);
-      pdf.text(splitRecommendation, margin, yPos);
-      
-      // Nouvelle page pour les détails complets
-      pdf.addPage();
-      yPos = 30;
-      
-      pdf.setFontSize(14);
-      pdf.text('DONNÉES COMPLÈTES', margin, yPos);
-      yPos += 20;
-      
-      const completeText = generateCompleteTextContent();
-      pdf.setFontSize(8);
-      const splitText = pdf.splitTextToSize(completeText, contentWidth);
-      
-      splitText.forEach((line: string) => {
-        if (yPos > pageHeight - margin) {
-          pdf.addPage();
-          yPos = 30;
-        }
-        pdf.text(line, margin, yPos);
-        yPos += 5;
-      });
-      
-      // Page de signatures
-      pdf.addPage();
-      pdf.setFontSize(14);
-      pdf.text('SIGNATURES', margin, 30);
-      
-      pdf.setFontSize(12);
-      pdf.text('Conseiller:', margin, 60);
-      pdf.text(documentInfo.advisorSignature || '___________________', margin, 75);
-      
-      pdf.text('Responsable:', margin, 110);
-      pdf.text(documentInfo.managerSignature || '___________________', margin, 125);
-      
-      pdf.text(`Document généré le: ${new Date().toLocaleString('fr-FR')}`, margin, pageHeight - 30);
-      
-      const fileName = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
-      
-      toast.success("PDF complet exporté avec succès !");
-    } catch (error) {
-      console.error('Erreur lors de l\'export PDF complet:', error);
-      toast.error("Erreur lors de l'export PDF complet. Veuillez réessayer.");
-    }
-  };
-
-  const handleSaveDocument = () => {
-    const documentData = {
-      assessments,
-      totalScore,
-      overallRisk,
-      documentInfo,
-      timestamp: new Date().toISOString()
-    };
-    
-    const dataStr = JSON.stringify(documentData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `tracfin_evaluation_${new Date().toISOString().split('T')[0]}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    
-    toast.success("Document sauvegardé avec succès !");
-  };
-
-  const handleExportPDF = async () => {
-    try {
-      toast.info("Génération du PDF en cours...");
-      
-      const element = document.getElementById('risk-summary-content');
-      if (!element) {
-        toast.error("Impossible de trouver le contenu à exporter");
-        return;
-      }
-
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(bodyElement, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
-        height: element.scrollHeight,
-        width: element.scrollWidth
+        height: bodyElement.scrollHeight,
+        width: bodyElement.scrollWidth,
+        backgroundColor: '#ffffff',
+        logging: false,
+        imageTimeout: 30000,
+        onclone: (clonedDoc) => {
+          // S'assurer que tous les styles sont copiés
+          const clonedBody = clonedDoc.body;
+          clonedBody.style.backgroundColor = '#ffffff';
+          
+          // Forcer l'affichage de tous les éléments cachés pour la capture
+          const hiddenElements = clonedDoc.querySelectorAll('[style*="display: none"]');
+          hiddenElements.forEach(el => {
+            (el as HTMLElement).style.display = 'block';
+          });
+        }
       });
       
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pdfWidth - (2 * margin);
+      const contentHeight = pdfHeight - (2 * margin);
+      
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 30;
-
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      const ratio = Math.min(contentWidth / (imgWidth * 0.264583), contentHeight / (imgHeight * 0.264583));
       
-      const fileName = `TRACFIN_Evaluation_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
+      const scaledWidth = (imgWidth * 0.264583) * ratio;
+      const scaledHeight = (imgHeight * 0.264583) * ratio;
+      
+      let yPosition = margin;
+      let remainingHeight = scaledHeight;
+      
+      // En-tête du document
+      pdf.setFontSize(16);
+      pdf.text('TRACFIN - ÉVALUATION COMPLÈTE DES RISQUES', pdfWidth / 2, 15, { align: 'center' });
+      pdf.setFontSize(10);
+      pdf.text(`Généré le: ${new Date().toLocaleString('fr-FR')}`, pdfWidth / 2, 22, { align: 'center' });
+      
+      yPosition = 30;
+      
+      // Ajout de l'image capturée
+      while (remainingHeight > 0) {
+        const pageHeight = Math.min(remainingHeight, contentHeight - (yPosition - margin));
+        
+        pdf.addImage(
+          imgData, 
+          'PNG', 
+          margin, 
+          yPosition, 
+          scaledWidth, 
+          pageHeight,
+          undefined,
+          'FAST'
+        );
+        
+        remainingHeight -= pageHeight;
+        
+        if (remainingHeight > 0) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+      }
+      
+      // Page supplémentaire avec les détails des fichiers téléchargés
+      pdf.addPage();
+      pdf.setFontSize(14);
+      pdf.text('FICHIERS TÉLÉCHARGÉS', margin, 30);
+      
+      let currentY = 45;
+      const vendorFiles = globalData.vendor.uploadedFiles || [];
+      const acquirerFiles = globalData.acquirer.uploadedFiles || [];
+      const fundFiles = globalData.fundOrigin.uploadedFiles || [];
+      
+      pdf.setFontSize(12);
+      pdf.text('Fichiers Vendeur:', margin, currentY);
+      currentY += 10;
+      pdf.setFontSize(10);
+      
+      if (vendorFiles.length > 0) {
+        vendorFiles.forEach((file: any) => {
+          pdf.text(`• ${file.name || 'Fichier sans nom'} (${file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue'})`, margin + 5, currentY);
+          currentY += 7;
+        });
+      } else {
+        pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
+        currentY += 7;
+      }
+      
+      currentY += 10;
+      pdf.setFontSize(12);
+      pdf.text('Fichiers Acquéreur:', margin, currentY);
+      currentY += 10;
+      pdf.setFontSize(10);
+      
+      if (acquirerFiles.length > 0) {
+        acquirerFiles.forEach((file: any) => {
+          pdf.text(`• ${file.name || 'Fichier sans nom'} (${file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue'})`, margin + 5, currentY);
+          currentY += 7;
+        });
+      } else {
+        pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
+        currentY += 7;
+      }
+      
+      currentY += 10;
+      pdf.setFontSize(12);
+      pdf.text('Fichiers Provenance des fonds:', margin, currentY);
+      currentY += 10;
+      pdf.setFontSize(10);
+      
+      if (fundFiles.length > 0) {
+        fundFiles.forEach((file: any) => {
+          pdf.text(`• ${file.name || 'Fichier sans nom'} (${file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue'})`, margin + 5, currentY);
+          currentY += 7;
+        });
+      } else {
+        pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
+        currentY += 7;
+      }
+      
+      // Page de signatures
+      pdf.addPage();
+      pdf.setFontSize(14);
+      pdf.text('SIGNATURES ET VALIDATION', margin, 30);
+      
+      pdf.setFontSize(12);
+      pdf.text('Date:', margin, 60);
+      pdf.text(documentInfo.date || '___________', margin + 30, 60);
+      
+      pdf.text('Lieu:', margin, 80);
+      pdf.text(documentInfo.location || '___________', margin + 30, 80);
+      
+      pdf.text('Conseiller:', margin, 120);
+      pdf.text(documentInfo.advisorSignature || '___________________', margin, 135);
+      pdf.line(margin, 140, margin + 80, 140);
+      
+      pdf.text('Responsable:', margin, 170);
+      pdf.text(documentInfo.managerSignature || '___________________', margin, 185);
+      pdf.line(margin, 190, margin + 80, 190);
+      
+      pdf.setFontSize(10);
+      pdf.text(`Document généré automatiquement le ${new Date().toLocaleString('fr-FR')}`, margin, pdfHeight - 15);
+      
+      const fileName = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
       
-      toast.success("PDF exporté avec succès !");
+      toast.success("PDF complet exporté avec succès ! Le document reflète fidèlement l'interface utilisateur.");
     } catch (error) {
-      console.error('Erreur lors de l\'export PDF:', error);
-      toast.error("Erreur lors de l'export PDF. Veuillez réessayer.");
+      console.error('Erreur lors de l\'export PDF complet:', error);
+      toast.error("Erreur lors de l'export PDF complet. Veuillez réessayer.");
     }
-  };
-
-  const handleSaveAs = () => {
-    const documentData = {
-      assessments,
-      totalScore,
-      overallRisk,
-      documentInfo,
-      timestamp: new Date().toISOString()
-    };
-    
-    const textContent = `
-TRACFIN - ÉVALUATION DES RISQUES
-================================
-
-Date: ${documentInfo.date}
-Lieu: ${documentInfo.location}
-
-RÉSULTATS DE L'ÉVALUATION
--------------------------
-Vendeurs: ${assessments.vendor.score}/6 - ${assessments.vendor.level}
-Acquéreurs: ${assessments.acquirer.score}/6 - ${assessments.acquirer.level}
-Provenance des fonds: ${assessments.fundOrigin.score}/6 - ${assessments.fundOrigin.level}
-
-SCORE TOTAL: ${totalScore}/18
-RISQUE GLOBAL: ${overallRisk}
-
-RECOMMANDATION: ${getRecommendation(overallRisk)}
-
-SIGNATURES
-----------
-Conseiller: ${documentInfo.advisorSignature}
-Responsable: ${documentInfo.managerSignature}
-
-Document généré le: ${new Date().toLocaleString('fr-FR')}
-    `.trim();
-    
-    const textBlob = new Blob([textContent], { type: 'text/plain' });
-    const textUrl = URL.createObjectURL(textBlob);
-    
-    const link = document.createElement('a');
-    link.href = textUrl;
-    link.download = `TRACFIN_Evaluation_${documentInfo.date || new Date().toISOString().split('T')[0]}.txt`;
-    link.click();
-    
-    URL.revokeObjectURL(textUrl);
-    toast.success("Document texte sauvegardé avec succès !");
   };
 
   return (
@@ -564,22 +441,6 @@ Document généré le: ${new Date().toLocaleString('fr-FR')}
         <Button onClick={handleFinalSave} className="bg-blue-600 hover:bg-blue-700">
           <Database className="h-4 w-4 mr-2" />
           Enregistrement final
-        </Button>
-        <Button onClick={handleSaveDocument} className="bg-green-600 hover:bg-green-700">
-          <Save className="h-4 w-4 mr-2" />
-          Enregistrer (JSON)
-        </Button>
-        <Button onClick={handleSaveAs} className="bg-yellow-600 hover:bg-yellow-700">
-          <FileText className="h-4 w-4 mr-2" />
-          Enregistrer (Résumé)
-        </Button>
-        <Button onClick={handleCompleteTextExport} className="bg-purple-600 hover:bg-purple-700">
-          <FileText className="h-4 w-4 mr-2" />
-          Export Texte Complet
-        </Button>
-        <Button onClick={handleExportPDF} className="bg-orange-600 hover:bg-orange-700">
-          <Download className="h-4 w-4 mr-2" />
-          PDF Résumé
         </Button>
         <Button onClick={handleCompletePDFExport} className="bg-red-600 hover:bg-red-700">
           <Download className="h-4 w-4 mr-2" />
