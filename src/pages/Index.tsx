@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,26 +50,26 @@ const Index = () => {
   const overallRisk = totalScore <= 3 ? 'Faible' : totalScore <= 6 ? 'Modéré' : 'Élevé';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-black">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-4xl font-bold text-gray-900 tracking-widest">T R A C F I N</h1>
+            <Shield className="h-8 w-8 text-blue-400" />
+            <h1 className="text-4xl font-bold text-white tracking-widest">T R A C F I N</h1>
           </div>
-          <p className="text-xl text-gray-600 mb-2">Lutte contre le blanchiment des capitaux</p>
-          <p className="text-lg text-gray-500">Évaluation des risques et classification</p>
+          <p className="text-xl text-gray-300 mb-2">Lutte contre le blanchiment des capitaux</p>
+          <p className="text-lg text-gray-400">Évaluation des risques et classification</p>
         </div>
 
         {/* Transaction and Property Selection */}
-        <Card className="mb-8">
+        <Card className="mb-8 bg-gray-900 border-gray-700">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <Building className="h-5 w-5" />
               Informations de la Transaction
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Sélectionnez le type de transaction et les caractéristiques du bien
             </CardDescription>
           </CardHeader>
@@ -110,9 +111,9 @@ const Index = () => {
         </Card>
 
         {/* Risk Overview */}
-        <Card className="mb-8 border-2">
+        <Card className="mb-8 border-2 bg-gray-900 border-gray-700">
           <CardHeader className="text-center">
-            <CardTitle className="flex items-center justify-center gap-2">
+            <CardTitle className="flex items-center justify-center gap-2 text-white">
               <AlertTriangle className="h-6 w-6" />
               Niveau de risque global
             </CardTitle>
@@ -136,20 +137,20 @@ const Index = () => {
 
         {/* Assessment Tabs */}
         <Tabs defaultValue="vendor" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="vendor" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-4 mb-8 bg-gray-800">
+            <TabsTrigger value="vendor" className="flex items-center gap-2 data-[state=active]:bg-gray-700 text-white">
               <Users className="h-4 w-4" />
               Vendeurs
             </TabsTrigger>
-            <TabsTrigger value="acquirer" className="flex items-center gap-2">
+            <TabsTrigger value="acquirer" className="flex items-center gap-2 data-[state=active]:bg-gray-700 text-white">
               <Building className="h-4 w-4" />
               Acquéreurs
             </TabsTrigger>
-            <TabsTrigger value="funds" className="flex items-center gap-2">
+            <TabsTrigger value="funds" className="flex items-center gap-2 data-[state=active]:bg-gray-700 text-white">
               <Coins className="h-4 w-4" />
               Provenance des fonds
             </TabsTrigger>
-            <TabsTrigger value="summary" className="flex items-center gap-2">
+            <TabsTrigger value="summary" className="flex items-center gap-2 data-[state=active]:bg-gray-700 text-white">
               <Shield className="h-4 w-4" />
               Résumé
             </TabsTrigger>
