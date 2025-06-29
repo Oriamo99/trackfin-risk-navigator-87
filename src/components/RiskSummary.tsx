@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Database } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -101,24 +100,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
     try {
       toast.info("Génération du PDF complet en cours... Cela peut prendre quelques instants.");
       
-      // Capturer chaque onglet individuellement
-      const tabs = ['vendor', 'acquirer', 'funds', 'summary'];
-      const tabElements: HTMLElement[] = [];
-      
-      // Simuler le clic sur chaque onglet pour les rendre visibles
-      for (const tabValue of tabs) {
-        const tabTrigger = document.querySelector(`[data-state="inactive"][value="${tabValue}"]`) as HTMLElement;
-        if (tabTrigger) {
-          tabTrigger.click();
-          await new Promise(resolve => setTimeout(resolve, 500)); // Attendre le rendu
-        }
-        
-        const tabContent = document.querySelector(`[data-state="active"][value="${tabValue}"]`) as HTMLElement;
-        if (tabContent) {
-          tabElements.push(tabContent);
-        }
-      }
-      
       // Créer le PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -131,80 +112,129 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       pdf.setFontSize(10);
       pdf.text(`Généré le: ${new Date().toLocaleString('fr-FR')}`, pdfWidth / 2, 22, { align: 'center' });
       
-      let isFirstPage = true;
+      let currentPage = 1;
       
-      // Traiter chaque section
-      const sectionTitles = ['SECTION VENDEUR', 'SECTION ACQUÉREUR', 'PROVENANCE DES FONDS', 'RÉSUMÉ FINAL'];
-      
-      for (let i = 0; i < tabElements.length; i++) {
-        const element = tabElements[i];
-        const sectionTitle = sectionTitles[i];
+      // Fonction pour ajouter une section au PDF
+      const addSectionToPDF = async (sectionTitle: string, tabValue: string) => {
+        // Cliquer sur l'onglet pour l'activer
+        const tabTrigger = document.querySelector(`[value="${tabValue}"]`) as HTMLElement;
+        if (tabTrigger && !tabTrigger.getAttribute('data-state')?.includes('active')) {
+          tabTrigger.click();
+          await new Promise(resolve => setTimeout(resolve, 800)); // Attendre le rendu complet
+        }
         
-        if (!isFirstPage) {
+        // Trouver le contenu de l'onglet actif
+        const tabContent = document.querySelector(`[data-state="active"][value="${tabValue}"]`) as HTMLElement;
+        if (!tabContent) {
+          console.warn(`Content not found for tab: ${tabValue}`);
+          return;
+        }
+        
+        // Nouvelle page si ce n'est pas la première section
+        if (currentPage > 1) {
           pdf.addPage();
         }
         
         // Titre de section
-        let yPosition = isFirstPage ? 35 : 20;
+        let yPosition = currentPage === 1 ? 35 : 20;
         pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
         pdf.text(sectionTitle, margin, yPosition);
         yPosition += 10;
         
-        // Capturer l'élément
-        const canvas = await html2canvas(element, {
-          scale: 1.5,
+        // Capturer l'élément avec une meilleure qualité
+        const canvas = await html2canvas(tabContent, {
+          scale: 2, // Augmenter la qualité
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
-          width: element.scrollWidth,
-          height: element.scrollHeight,
+          width: tabContent.scrollWidth,
+          height: tabContent.scrollHeight,
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
         });
         
-        const imgData = canvas.toDataURL('image/png', 0.8);
+        const imgData = canvas.toDataURL('image/png', 1.0); // Qualité maximale
         const contentWidth = pdfWidth - (2 * margin);
-        const contentHeight = pdfHeight - yPosition - margin;
+        const availableHeight = pdfHeight - yPosition - margin;
         
+        // Calculer les dimensions en gardant les proportions
         const imgWidth = canvas.width;
         const imgHeight = canvas.height;
-        const ratio = Math.min(contentWidth / (imgWidth * 0.264583), contentHeight / (imgHeight * 0.264583));
+        const aspectRatio = imgWidth / imgHeight;
         
-        const scaledWidth = (imgWidth * 0.264583) * ratio;
-        const scaledHeight = (imgHeight * 0.264583) * ratio;
+        let finalWidth = contentWidth;
+        let finalHeight = finalWidth / aspectRatio;
         
-        // Ajouter l'image à la page
-        let remainingHeight = scaledHeight;
+        // Si l'image est trop haute, ajuster
+        if (finalHeight > availableHeight) {
+          finalHeight = availableHeight;
+          finalWidth = finalHeight * aspectRatio;
+        }
+        
+        // Centrer l'image si elle est plus étroite que la largeur disponible
+        const xPosition = finalWidth < contentWidth ? margin + (contentWidth - finalWidth) / 2 : margin;
+        
+        // Ajouter l'image au PDF
+        let remainingHeight = finalHeight;
         let sourceY = 0;
+        let currentYPos = yPosition;
         
         while (remainingHeight > 0) {
-          const pageHeight = Math.min(remainingHeight, contentHeight);
+          const pageRemainingHeight = pdfHeight - currentYPos - margin;
+          const segmentHeight = Math.min(remainingHeight, pageRemainingHeight);
+          
+          // Créer un canvas temporaire pour cette partie de l'image
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = (segmentHeight / finalHeight) * canvas.height;
+          
+          tempCtx?.drawImage(
+            canvas,
+            0, (sourceY / finalHeight) * canvas.height,
+            canvas.width, tempCanvas.height,
+            0, 0,
+            canvas.width, tempCanvas.height
+          );
+          
+          const segmentData = tempCanvas.toDataURL('image/png', 1.0);
           
           pdf.addImage(
-            imgData,
+            segmentData,
             'PNG',
-            margin,
-            yPosition,
-            scaledWidth,
-            pageHeight,
+            xPosition,
+            currentYPos,
+            finalWidth,
+            segmentHeight,
             undefined,
             'FAST'
           );
           
-          remainingHeight -= pageHeight;
-          sourceY += pageHeight;
+          remainingHeight -= segmentHeight;
+          sourceY += segmentHeight;
           
           if (remainingHeight > 0) {
             pdf.addPage();
-            yPosition = margin;
+            currentYPos = margin;
+            currentPage++;
           }
         }
         
-        isFirstPage = false;
-      }
+        currentPage++;
+      };
+      
+      // Traiter chaque section
+      await addSectionToPDF('SECTION VENDEUR', 'vendor');
+      await addSectionToPDF('SECTION ACQUÉREUR', 'acquirer');
+      await addSectionToPDF('PROVENANCE DES FONDS', 'funds');
+      await addSectionToPDF('RÉSUMÉ FINAL', 'summary');
       
       // Page avec les fichiers téléchargés
       pdf.addPage();
       pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
       pdf.text('DOCUMENTS TÉLÉCHARGÉS', margin, 30);
       
       let currentY = 45;
@@ -225,7 +255,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
             pdf.text(`• ${fileName} (${fileSize})`, margin + 5, currentY);
             currentY += 6;
             
-            // Vérifier si on dépasse la page
             if (currentY > pdfHeight - 20) {
               pdf.addPage();
               currentY = margin + 10;
@@ -268,7 +297,7 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       const fileName = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
       
-      toast.success("PDF complet exporté avec succès ! Toutes les sections ont été incluses.");
+      toast.success("PDF complet exporté avec succès ! Toutes les sections ont été incluses avec leur rendu visuel.");
       
     } catch (error) {
       console.error('Erreur lors de l\'export PDF complet:', error);

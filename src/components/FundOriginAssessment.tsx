@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7,11 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Coins, AlertCircle, Upload, ExternalLink } from "lucide-react";
+import { Coins, AlertCircle, ExternalLink, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
 
 interface FundOriginAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -27,6 +25,18 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     atypicalOperation: false,
     knownInfractions: false,
     noClientInfo: false
+  });
+
+  // Nouvel état pour les réponses Oui/Non de chaque critère
+  const [riskResponses, setRiskResponses] = useLocalStorage('fundOriginRiskResponses', {
+    legitimateSource: { yes: false, no: false },
+    unusualPattern: { yes: false, no: false },
+    cashTransaction: { yes: false, no: false },
+    unreliableInfo: { yes: false, no: false },
+    actingForThird: { yes: false, no: false },
+    atypicalOperation: { yes: false, no: false },
+    knownInfractions: { yes: false, no: false },
+    noClientInfo: { yes: false, no: false }
   });
 
   const [fundData, setFundData] = useLocalStorage('fundData', {
@@ -114,9 +124,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   };
 
   const formatAmount = (value: string) => {
-    // Remove all non-digit characters
     const numericValue = value.replace(/\D/g, '');
-    // Format with dots as thousands separators
     return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
@@ -133,6 +141,20 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
 
   const handleCheck = (id: string, checked: boolean) => {
     setChecks(prev => ({ ...prev, [id]: checked }));
+  };
+
+  // Nouvelle fonction pour gérer les réponses Oui/Non
+  const handleRiskResponse = (questionId: string, responseType: 'yes' | 'no', checked: boolean) => {
+    setRiskResponses(prev => ({
+      ...prev,
+      [questionId]: {
+        ...prev[questionId as keyof typeof prev],
+        [responseType]: checked,
+        // Décocher l'autre option si on coche celle-ci
+        ...(checked && responseType === 'yes' ? { no: false } : {}),
+        ...(checked && responseType === 'no' ? { yes: false } : {})
+      }
+    }));
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -428,7 +450,8 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                   <TableHead>Critère d'évaluation</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Niveau de risque</TableHead>
-                  <TableHead className="text-center">Oui/Non</TableHead>
+                  <TableHead className="text-center">Oui</TableHead>
+                  <TableHead className="text-center">Non</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -447,8 +470,14 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                     </TableCell>
                     <TableCell className="text-center">
                       <Checkbox
-                        checked={checks[question.id as keyof typeof checks]}
-                        onCheckedChange={(checked) => handleCheck(question.id, checked as boolean)}
+                        checked={riskResponses[question.id as keyof typeof riskResponses]?.yes || false}
+                        onCheckedChange={(checked) => handleRiskResponse(question.id, 'yes', checked as boolean)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={riskResponses[question.id as keyof typeof riskResponses]?.no || false}
+                        onCheckedChange={(checked) => handleRiskResponse(question.id, 'no', checked as boolean)}
                       />
                     </TableCell>
                   </TableRow>
