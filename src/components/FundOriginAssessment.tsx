@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -238,19 +239,26 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
               </Select>
             </div>
 
-            {/* Section Prêt bancaire */}
+            {/* Section Prêt bancaire avec boutons distincts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="bankLoan">Présence d'un prêt bancaire</Label>
-                <Select value={fundData.bankLoan} onValueChange={(value) => handleInputChange('bankLoan', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Prêt bancaire ?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oui">Oui</SelectItem>
-                    <SelectItem value="non">Non</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Présence d'un prêt bancaire</Label>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant={fundData.bankLoan === 'oui' ? 'default' : 'outline'}
+                    onClick={() => handleInputChange('bankLoan', 'oui')}
+                    className="flex-1"
+                  >
+                    Oui
+                  </Button>
+                  <Button
+                    variant={fundData.bankLoan === 'non' ? 'default' : 'outline'}
+                    onClick={() => handleInputChange('bankLoan', 'non')}
+                    className="flex-1"
+                  >
+                    Non
+                  </Button>
+                </div>
               </div>
               {fundData.bankLoan === 'oui' && (
                 <div>
@@ -298,9 +306,15 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                 />
                 {uploadedFiles.length > 0 && (
                   <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Fichiers téléchargés :</h4>
                     {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="text-sm">{file.name}</span>
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{file.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            ({Math.round(file.size / 1024)} KB)
+                          </span>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"
@@ -370,9 +384,15 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
               />
               {verificationFiles.length > 0 && (
                 <div className="space-y-2 mt-3">
+                  <h4 className="font-medium text-sm">Fichiers de vérification :</h4>
                   {verificationFiles.map((file, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
-                      <span className="text-sm">{file.name}</span>
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">{file.name}</span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({Math.round(file.size / 1024)} KB)
+                        </span>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"

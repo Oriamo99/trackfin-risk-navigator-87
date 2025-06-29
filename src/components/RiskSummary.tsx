@@ -101,49 +101,29 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
     try {
       toast.info("Génération du PDF complet en cours... Cela peut prendre quelques instants.");
       
-      // Capturer le contenu entier de la page visible
-      const bodyElement = document.body;
+      // Capturer chaque onglet individuellement
+      const tabs = ['vendor', 'acquirer', 'funds', 'summary'];
+      const tabElements: HTMLElement[] = [];
       
-      const canvas = await html2canvas(bodyElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        height: bodyElement.scrollHeight,
-        width: bodyElement.scrollWidth,
-        backgroundColor: '#ffffff',
-        logging: false,
-        imageTimeout: 30000,
-        onclone: (clonedDoc) => {
-          // S'assurer que tous les styles sont copiés
-          const clonedBody = clonedDoc.body;
-          clonedBody.style.backgroundColor = '#ffffff';
-          
-          // Forcer l'affichage de tous les éléments cachés pour la capture
-          const hiddenElements = clonedDoc.querySelectorAll('[style*="display: none"]');
-          hiddenElements.forEach(el => {
-            (el as HTMLElement).style.display = 'block';
-          });
+      // Simuler le clic sur chaque onglet pour les rendre visibles
+      for (const tabValue of tabs) {
+        const tabTrigger = document.querySelector(`[data-state="inactive"][value="${tabValue}"]`) as HTMLElement;
+        if (tabTrigger) {
+          tabTrigger.click();
+          await new Promise(resolve => setTimeout(resolve, 500)); // Attendre le rendu
         }
-      });
+        
+        const tabContent = document.querySelector(`[data-state="active"][value="${tabValue}"]`) as HTMLElement;
+        if (tabContent) {
+          tabElements.push(tabContent);
+        }
+      }
       
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      // Créer le PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
-      
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
-      const contentWidth = pdfWidth - (2 * margin);
-      const contentHeight = pdfHeight - (2 * margin);
-      
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(contentWidth / (imgWidth * 0.264583), contentHeight / (imgHeight * 0.264583));
-      
-      const scaledWidth = (imgWidth * 0.264583) * ratio;
-      const scaledHeight = (imgHeight * 0.264583) * ratio;
-      
-      let yPosition = margin;
-      let remainingHeight = scaledHeight;
       
       // En-tête du document
       pdf.setFontSize(16);
@@ -151,87 +131,116 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       pdf.setFontSize(10);
       pdf.text(`Généré le: ${new Date().toLocaleString('fr-FR')}`, pdfWidth / 2, 22, { align: 'center' });
       
-      yPosition = 30;
+      let isFirstPage = true;
       
-      // Ajout de l'image capturée
-      while (remainingHeight > 0) {
-        const pageHeight = Math.min(remainingHeight, contentHeight - (yPosition - margin));
+      // Traiter chaque section
+      const sectionTitles = ['SECTION VENDEUR', 'SECTION ACQUÉREUR', 'PROVENANCE DES FONDS', 'RÉSUMÉ FINAL'];
+      
+      for (let i = 0; i < tabElements.length; i++) {
+        const element = tabElements[i];
+        const sectionTitle = sectionTitles[i];
         
-        pdf.addImage(
-          imgData, 
-          'PNG', 
-          margin, 
-          yPosition, 
-          scaledWidth, 
-          pageHeight,
-          undefined,
-          'FAST'
-        );
-        
-        remainingHeight -= pageHeight;
-        
-        if (remainingHeight > 0) {
+        if (!isFirstPage) {
           pdf.addPage();
-          yPosition = margin;
         }
+        
+        // Titre de section
+        let yPosition = isFirstPage ? 35 : 20;
+        pdf.setFontSize(14);
+        pdf.text(sectionTitle, margin, yPosition);
+        yPosition += 10;
+        
+        // Capturer l'élément
+        const canvas = await html2canvas(element, {
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: element.scrollWidth,
+          height: element.scrollHeight,
+        });
+        
+        const imgData = canvas.toDataURL('image/png', 0.8);
+        const contentWidth = pdfWidth - (2 * margin);
+        const contentHeight = pdfHeight - yPosition - margin;
+        
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = Math.min(contentWidth / (imgWidth * 0.264583), contentHeight / (imgHeight * 0.264583));
+        
+        const scaledWidth = (imgWidth * 0.264583) * ratio;
+        const scaledHeight = (imgHeight * 0.264583) * ratio;
+        
+        // Ajouter l'image à la page
+        let remainingHeight = scaledHeight;
+        let sourceY = 0;
+        
+        while (remainingHeight > 0) {
+          const pageHeight = Math.min(remainingHeight, contentHeight);
+          
+          pdf.addImage(
+            imgData,
+            'PNG',
+            margin,
+            yPosition,
+            scaledWidth,
+            pageHeight,
+            undefined,
+            'FAST'
+          );
+          
+          remainingHeight -= pageHeight;
+          sourceY += pageHeight;
+          
+          if (remainingHeight > 0) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+        }
+        
+        isFirstPage = false;
       }
       
-      // Page supplémentaire avec les détails des fichiers téléchargés
+      // Page avec les fichiers téléchargés
       pdf.addPage();
       pdf.setFontSize(14);
-      pdf.text('FICHIERS TÉLÉCHARGÉS', margin, 30);
+      pdf.text('DOCUMENTS TÉLÉCHARGÉS', margin, 30);
       
       let currentY = 45;
       const vendorFiles = globalData.vendor.uploadedFiles || [];
       const acquirerFiles = globalData.acquirer.uploadedFiles || [];
       const fundFiles = globalData.fundOrigin.uploadedFiles || [];
       
-      pdf.setFontSize(12);
-      pdf.text('Fichiers Vendeur:', margin, currentY);
-      currentY += 10;
-      pdf.setFontSize(10);
+      const addFileSection = (title: string, files: any[]) => {
+        pdf.setFontSize(12);
+        pdf.text(title, margin, currentY);
+        currentY += 8;
+        pdf.setFontSize(10);
+        
+        if (files.length > 0) {
+          files.forEach((file: any) => {
+            const fileName = file.name || 'Fichier sans nom';
+            const fileSize = file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue';
+            pdf.text(`• ${fileName} (${fileSize})`, margin + 5, currentY);
+            currentY += 6;
+            
+            // Vérifier si on dépasse la page
+            if (currentY > pdfHeight - 20) {
+              pdf.addPage();
+              currentY = margin + 10;
+            }
+          });
+        } else {
+          pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
+          currentY += 6;
+        }
+        currentY += 8;
+      };
       
-      if (vendorFiles.length > 0) {
-        vendorFiles.forEach((file: any) => {
-          pdf.text(`• ${file.name || 'Fichier sans nom'} (${file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue'})`, margin + 5, currentY);
-          currentY += 7;
-        });
-      } else {
-        pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
-        currentY += 7;
-      }
-      
-      currentY += 10;
-      pdf.setFontSize(12);
-      pdf.text('Fichiers Acquéreur:', margin, currentY);
-      currentY += 10;
-      pdf.setFontSize(10);
-      
-      if (acquirerFiles.length > 0) {
-        acquirerFiles.forEach((file: any) => {
-          pdf.text(`• ${file.name || 'Fichier sans nom'} (${file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue'})`, margin + 5, currentY);
-          currentY += 7;
-        });
-      } else {
-        pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
-        currentY += 7;
-      }
-      
-      currentY += 10;
-      pdf.setFontSize(12);
-      pdf.text('Fichiers Provenance des fonds:', margin, currentY);
-      currentY += 10;
-      pdf.setFontSize(10);
-      
-      if (fundFiles.length > 0) {
-        fundFiles.forEach((file: any) => {
-          pdf.text(`• ${file.name || 'Fichier sans nom'} (${file.size ? Math.round(file.size / 1024) + ' KB' : 'Taille inconnue'})`, margin + 5, currentY);
-          currentY += 7;
-        });
-      } else {
-        pdf.text('• Aucun fichier téléchargé', margin + 5, currentY);
-        currentY += 7;
-      }
+      addFileSection('Fichiers Vendeur:', vendorFiles);
+      addFileSection('Fichiers Acquéreur:', acquirerFiles);
+      addFileSection('Fichiers Provenance des fonds:', fundFiles);
       
       // Page de signatures
       pdf.addPage();
@@ -259,7 +268,8 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       const fileName = `TRACFIN_Evaluation_Complete_${documentInfo.date || new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
       
-      toast.success("PDF complet exporté avec succès ! Le document reflète fidèlement l'interface utilisateur.");
+      toast.success("PDF complet exporté avec succès ! Toutes les sections ont été incluses.");
+      
     } catch (error) {
       console.error('Erreur lors de l\'export PDF complet:', error);
       toast.error("Erreur lors de l'export PDF complet. Veuillez réessayer.");
@@ -438,10 +448,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       </div>
 
       <div className="flex flex-wrap justify-center gap-4 pt-4">
-        <Button onClick={handleFinalSave} className="bg-blue-600 hover:bg-blue-700">
-          <Database className="h-4 w-4 mr-2" />
-          Enregistrement final
-        </Button>
         <Button onClick={handleCompletePDFExport} className="bg-red-600 hover:bg-red-700">
           <Download className="h-4 w-4 mr-2" />
           PDF Complet
