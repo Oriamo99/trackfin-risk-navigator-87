@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Coins, AlertCircle, ExternalLink, Save } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Coins, AlertCircle, ExternalLink, Save, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { toast } from "sonner";
@@ -204,133 +205,286 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Informations sur la provenance des fonds */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Coins className="h-5 w-5" />
-            Informations sur la Provenance des Fonds
-          </CardTitle>
-          <CardDescription>
-            Détails sur l'origine et la nature des fonds utilisés
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="transactionAmount">Montant de la transaction (€)</Label>
-                <Input
-                  id="transactionAmount"
-                  value={fundData.transactionAmount}
-                  onChange={(e) => handleAmountChange(e.target.value)}
-                  placeholder="Exemple: 250.000"
-                />
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Informations sur la provenance des fonds */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5" />
+              Informations sur la Provenance des Fonds
+            </CardTitle>
+            <CardDescription>
+              Détails sur l'origine et la nature des fonds utilisés
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="transactionAmount">Montant de la transaction (€)</Label>
+                  <Input
+                    id="transactionAmount"
+                    value={fundData.transactionAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    placeholder="Exemple: 250.000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="paymentMethod">Mode de paiement</Label>
+                  <Select value={fundData.paymentMethod} onValueChange={(value) => handleInputChange('paymentMethod', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner le mode de paiement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method.value} value={method.value}>
+                          {method.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              
               <div>
-                <Label htmlFor="paymentMethod">Mode de paiement</Label>
-                <Select value={fundData.paymentMethod} onValueChange={(value) => handleInputChange('paymentMethod', value)}>
+                <Label htmlFor="originDescription">Origine des fonds</Label>
+                <Select value={fundData.originDescription} onValueChange={(value) => handleInputChange('originDescription', value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner le mode de paiement" />
+                    <SelectValue placeholder="Sélectionner l'origine des fonds" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method.value} value={method.value}>
-                        {method.label}
+                    {fundOrigins.map((origin) => (
+                      <SelectItem key={origin.value} value={origin.value}>
+                        {origin.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="originDescription">Origine des fonds</Label>
-              <Select value={fundData.originDescription} onValueChange={(value) => handleInputChange('originDescription', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner l'origine des fonds" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fundOrigins.map((origin) => (
-                    <SelectItem key={origin.value} value={origin.value}>
-                      {origin.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            {/* Section Prêt bancaire avec boutons distincts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Section Prêt bancaire avec boutons distincts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Présence d'un prêt bancaire</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      variant={fundData.bankLoan === 'oui' ? 'default' : 'outline'}
+                      onClick={() => handleInputChange('bankLoan', 'oui')}
+                      className="flex-1"
+                    >
+                      Oui
+                    </Button>
+                    <Button
+                      variant={fundData.bankLoan === 'non' ? 'default' : 'outline'}
+                      onClick={() => handleInputChange('bankLoan', 'non')}
+                      className="flex-1"
+                    >
+                      Non
+                    </Button>
+                  </div>
+                </div>
+                {fundData.bankLoan === 'oui' && (
+                  <div>
+                    <Label htmlFor="lenderBank">Banque prêteuse</Label>
+                    <Input
+                      id="lenderBank"
+                      value={fundData.lenderBank}
+                      onChange={(e) => handleInputChange('lenderBank', e.target.value)}
+                      placeholder="Nom de la banque prêteuse"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
-                <Label>Présence d'un prêt bancaire</Label>
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    variant={fundData.bankLoan === 'oui' ? 'default' : 'outline'}
-                    onClick={() => handleInputChange('bankLoan', 'oui')}
-                    className="flex-1"
-                  >
-                    Oui
-                  </Button>
-                  <Button
-                    variant={fundData.bankLoan === 'non' ? 'default' : 'outline'}
-                    onClick={() => handleInputChange('bankLoan', 'non')}
-                    className="flex-1"
-                  >
-                    Non
-                  </Button>
+                <Label htmlFor="bankDetails">Détails bancaires</Label>
+                <Textarea
+                  id="bankDetails"
+                  value={fundData.bankDetails}
+                  onChange={(e) => handleInputChange('bankDetails', e.target.value)}
+                  placeholder="Banque, IBAN, historique des comptes..."
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="justificationDocuments">Documents justificatifs</Label>
+                <Textarea
+                  id="justificationDocuments"
+                  value={fundData.justificationDocuments}
+                  onChange={(e) => handleInputChange('justificationDocuments', e.target.value)}
+                  placeholder="Liste des documents fournis"
+                />
+              </div>
+
+              {/* Zone de téléchargement de fichiers */}
+              <div>
+                <Label htmlFor="fileUpload">Documents joints</Label>
+                <div className="mt-2">
+                  <Input
+                    id="fileUpload"
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="mb-2"
+                  />
+                  {uploadedFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Fichiers téléchargés :</h4>
+                      {uploadedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                          <div className="flex-1">
+                            <span className="text-sm font-medium">{file.name}</span>
+                            <span className="text-xs text-gray-500 ml-2">
+                              ({Math.round(file.size / 1024)} KB)
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                          >
+                            Supprimer
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-              {fundData.bankLoan === 'oui' && (
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Liens vers les sites officiels */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ExternalLink className="h-5 w-5" />
+              Vérifications Officielles
+            </CardTitle>
+            <CardDescription>
+              Liens vers les sites officiels pour les vérifications
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
-                  <Label htmlFor="lenderBank">Banque prêteuse</Label>
-                  <Input
-                    id="lenderBank"
-                    value={fundData.lenderBank}
-                    onChange={(e) => handleInputChange('lenderBank', e.target.value)}
-                    placeholder="Nom de la banque prêteuse"
-                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="font-medium cursor-help hover:text-blue-600 transition-colors">Gel des Avoirs - DG Trésor</h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <p>Veuillez cliquer sur le bouton "Accéder au site internet", inscrire le nom de la personne recherchée, réaliser une capture d'écran de l'affichage, puis insérer l'image dans "Sélection fichier".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
                 </div>
-              )}
-            </div>
+                <Button variant="outline" asChild>
+                  <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder au site internet
+                  </a>
+                </Button>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="font-medium cursor-help hover:text-blue-600 transition-colors">GAFI - Pays à Haut Risque</h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <p>Appuyer sur "Accéder" pour se rendre sur le site internet. Ensuite, il faudra faire une capture d'écran du pays concerné et l'ajouter dans "Sélection fichier".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
+              </div>
 
-            <div>
-              <Label htmlFor="bankDetails">Détails bancaires</Label>
-              <Textarea
-                id="bankDetails"
-                value={fundData.bankDetails}
-                onChange={(e) => handleInputChange('bankDetails', e.target.value)}
-                placeholder="Banque, IBAN, historique des comptes..."
-              />
-            </div>
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="font-medium cursor-help hover:text-blue-600 transition-colors">Vérification Google</h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <p>Accéder à Google. Une fois sur le site, vous devez rechercher le nom de la personne désirée, faire une capture d'écran de l'image et la télécharger dans "Sélection fichier".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <p className="text-sm text-gray-600">Recherche d'informations publiques sur la personne</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.google.com" target="_blank" rel="noopener noreferrer">
+                    <Search className="h-4 w-4 mr-2" />
+                    Accéder à Google
+                  </a>
+                </Button>
+              </div>
 
-            <div>
-              <Label htmlFor="justificationDocuments">Documents justificatifs</Label>
-              <Textarea
-                id="justificationDocuments"
-                value={fundData.justificationDocuments}
-                onChange={(e) => handleInputChange('justificationDocuments', e.target.value)}
-                placeholder="Liste des documents fournis"
-              />
-            </div>
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="font-medium cursor-help hover:text-blue-600 transition-colors">Vérification Piper's</h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <p>Cliquer sur "Accéder" pour visiter le site de Piper's. Ensuite, effectuez une recherche sur le nom de la personne ou de la société, réalisez une capture d'écran de l'affichage et intégrez-la dans "Sélection fichier".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <p className="text-sm text-gray-600">Base de données de vérification des antécédents</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://www.pipl.com" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
+              </div>
 
-            {/* Zone de téléchargement de fichiers */}
-            <div>
-              <Label htmlFor="fileUpload">Documents joints</Label>
-              <div className="mt-2">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="font-medium cursor-help hover:text-blue-600 transition-colors">Personnes Politiquement Exposées</h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <p>Accéder au site. En cliquant sur le bouton d'accès, suivez le processus : sélectionner le métier, rechercher, capturer l'écran, puis insérer l'image dans "Sélection fichier".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <p className="text-sm text-gray-600">Vérification des personnes politiquement exposées</p>
+                </div>
+                <Button variant="outline" asChild>
+                  <a href="https://sanctionssearch.ofac.treas.gov/" target="_blank" rel="noopener noreferrer">
+                    <Users className="h-4 w-4 mr-2" />
+                    Accéder
+                  </a>
+                </Button>
+              </div>
+
+              {/* Zone de téléchargement pour captures d'écran */}
+              <div className="p-4 border rounded-lg bg-blue-50">
+                <h4 className="font-medium mb-2">Captures d'écran des vérifications</h4>
+                <p className="text-sm text-gray-600 mb-3">Joindre les captures d'écran des vérifications effectuées sur les sites officiels</p>
                 <Input
-                  id="fileUpload"
                   type="file"
                   multiple
-                  onChange={handleFileUpload}
+                  accept="image/*"
+                  onChange={handleVerificationFileUpload}
                   className="mb-2"
                 />
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Fichiers téléchargés :</h4>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
+                {verificationFiles.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    <h4 className="font-medium text-sm">Fichiers de vérification :</h4>
+                    {verificationFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
                         <div className="flex-1">
                           <span className="text-sm font-medium">{file.name}</span>
                           <span className="text-xs text-gray-500 ml-2">
@@ -340,7 +494,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => removeFile(index)}
+                          onClick={() => removeVerificationFile(index)}
                         >
                           Supprimer
                         </Button>
@@ -350,169 +504,92 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                 )}
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Liens vers les sites officiels */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ExternalLink className="h-5 w-5" />
-            Vérifications Officielles
-          </CardTitle>
-          <CardDescription>
-            Liens vers les sites officiels pour les vérifications
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h4 className="font-medium">Gel des Avoirs - DG Trésor</h4>
-                <p className="text-sm text-gray-600">Vérification des listes de sanctions internationales</p>
-              </div>
-              <Button variant="outline" asChild>
-                <a href="https://gels-avoirs.dgtresor.gouv.fr/" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Accéder
-                </a>
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h4 className="font-medium">GAFI - Pays à Haut Risque</h4>
-                <p className="text-sm text-gray-600">Liste noire et grise du GAFI</p>
-              </div>
-              <Button variant="outline" asChild>
-                <a href="https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Accéder
-                </a>
-              </Button>
-            </div>
-
-            {/* Zone de téléchargement pour captures d'écran */}
-            <div className="p-4 border rounded-lg bg-blue-50">
-              <h4 className="font-medium mb-2">Captures d'écran des vérifications</h4>
-              <p className="text-sm text-gray-600 mb-3">Joindre les captures d'écran des vérifications effectuées sur les sites officiels</p>
-              <Input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleVerificationFileUpload}
-                className="mb-2"
-              />
-              {verificationFiles.length > 0 && (
-                <div className="space-y-2 mt-3">
-                  <h4 className="font-medium text-sm">Fichiers de vérification :</h4>
-                  {verificationFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
-                      <div className="flex-1">
-                        <span className="text-sm font-medium">{file.name}</span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          ({Math.round(file.size / 1024)} KB)
-                        </span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeVerificationFile(index)}
-                      >
-                        Supprimer
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Évaluation des risques */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            Évaluation des Risques - Provenance des Fonds
-          </CardTitle>
-          <CardDescription>
-            Analyse des risques liés à la provenance des fonds
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Critère d'évaluation</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Niveau de risque</TableHead>
-                  <TableHead className="text-center">Oui</TableHead>
-                  <TableHead className="text-center">Non</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {questions.map((question) => (
-                  <TableRow key={question.id}>
-                    <TableCell className="font-medium">{question.label}</TableCell>
-                    <TableCell className="text-sm text-gray-600">{question.description}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        question.risk === 'Faible' ? 'bg-green-100 text-green-800' :
-                        question.risk === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {question.risk}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox
-                        checked={riskResponses[question.id as keyof typeof riskResponses]?.yes || false}
-                        onCheckedChange={(checked) => handleRiskResponse(question.id, 'yes', checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox
-                        checked={riskResponses[question.id as keyof typeof riskResponses]?.no || false}
-                        onCheckedChange={(checked) => handleRiskResponse(question.id, 'no', checked as boolean)}
-                      />
-                    </TableCell>
+        {/* Évaluation des risques */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Évaluation des Risques - Provenance des Fonds
+            </CardTitle>
+            <CardDescription>
+              Analyse des risques liés à la provenance des fonds
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Critère d'évaluation</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Niveau de risque</TableHead>
+                    <TableHead className="text-center">Oui</TableHead>
+                    <TableHead className="text-center">Non</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {questions.map((question) => (
+                    <TableRow key={question.id}>
+                      <TableCell className="font-medium">{question.label}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{question.description}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          question.risk === 'Faible' ? 'bg-green-100 text-green-800' :
+                          question.risk === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {question.risk}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={riskResponses[question.id as keyof typeof riskResponses]?.yes || false}
+                          onCheckedChange={(checked) => handleRiskResponse(question.id, 'yes', checked as boolean)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={riskResponses[question.id as keyof typeof riskResponses]?.no || false}
+                          onCheckedChange={(checked) => handleRiskResponse(question.id, 'no', checked as boolean)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-blue-600" />
-                <span className="font-medium">Score de risque provenance:</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-2xl font-bold">{score}/20</span>
-                <span className={`px-3 py-1 rounded-full font-medium ${
-                  riskLevel === 'Faible' ? 'bg-green-100 text-green-800' :
-                  riskLevel === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {riskLevel}
-                </span>
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                  <span className="font-medium">Score de risque provenance:</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl font-bold">{score}/20</span>
+                  <span className={`px-3 py-1 rounded-full font-medium ${
+                    riskLevel === 'Faible' ? 'bg-green-100 text-green-800' :
+                    riskLevel === 'Modéré' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {riskLevel}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Bouton de sauvegarde */}
-      <div className="text-center">
-        <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-          <Save className="h-4 w-4 mr-2" />
-          Sauvegarder les données de provenance
-        </Button>
+        {/* Bouton de sauvegarde */}
+        <div className="text-center">
+          <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+            <Save className="h-4 w-4 mr-2" />
+            Sauvegarder les données de provenance
+          </Button>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
 
