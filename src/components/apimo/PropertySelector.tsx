@@ -101,11 +101,11 @@ export const PropertySelector = ({ onSelect, onManualMode }: PropertySelectorPro
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900 tracking-widest">T R A C F I N</h1>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-widest">T R A C K F I N</h1>
           </div>
           <h2 className="text-xl text-gray-700 mb-1">Sélectionner un bien</h2>
           <p className="text-gray-500">
-            Choisissez le bien immobilier pour lequel vous souhaitez réaliser l'évaluation TRACFIN.
+            Choisissez le bien immobilier pour lequel vous souhaitez réaliser l'évaluation TRACKFIN.
           </p>
         </div>
 

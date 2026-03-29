@@ -96,7 +96,7 @@ class ApimoService {
     const agencyId = this.getAgencyId();
     const formData = new FormData();
     formData.append('file', fileBlob, fileName);
-    formData.append('label', label ?? `Évaluation TRACFIN — ${new Date().toLocaleDateString('fr-FR')}`);
+    formData.append('label', label ?? `Évaluation TRACKFIN — ${new Date().toLocaleDateString('fr-FR')}`);
 
     const response = await fetch(
       `${APIMO_BASE_URL}/agencies/${agencyId}/properties/${propertyId}/documents`,

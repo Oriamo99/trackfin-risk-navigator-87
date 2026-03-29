@@ -90,10 +90,7 @@ export type FundDataFormData = z.infer<typeof fundDataSchema>;
 // ─── 4. Document info (signature page) ───────────────────────────────────
 
 export const documentInfoSchema = z.object({
-  date: z.string().min(1, MSG.required),
-  location: z.string().trim().min(1, MSG.required),
-  advisorSignature: z.string().trim().min(1, MSG.required),
-  managerSignature: z.string().trim().min(1, MSG.required),
+  redactorName: z.string().trim().min(1, 'Le nom du rédacteur est obligatoire'),
 });
 
 export type DocumentInfoFormData = z.infer<typeof documentInfoSchema>;

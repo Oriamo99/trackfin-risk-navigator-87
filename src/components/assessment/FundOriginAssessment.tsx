@@ -9,8 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Coins, Save, AlertCircle, AlertTriangle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
-import { toast } from "sonner";
+import { Coins, AlertCircle, AlertTriangle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RiskAssessmentTable } from "@/components/assessment/RiskAssessmentTable";
 import { FundsDocumentChecklist } from "@/components/documents/FundsDocumentChecklist";
@@ -159,10 +158,6 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
         handleInputChange(field, e.target.value);
       },
     };
-  };
-
-  const handleSave = () => {
-    toast.success("Données de provenance des fonds sauvegardées avec succès !");
   };
 
   return (
@@ -349,7 +344,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                 </div>
               </button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4">
+            <CollapsibleContent className="mt-4 overflow-x-auto">
               <RiskAssessmentTable
                 questions={fundOriginQuestions}
                 checks={checks}
@@ -363,12 +358,6 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
           </div>
         </Collapsible>
 
-        <div className="text-center">
-          <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-            <Save className="h-4 w-4 mr-2" />
-            Sauvegarder les données de provenance
-          </Button>
-        </div>
       </div>
     </TooltipProvider>
   );

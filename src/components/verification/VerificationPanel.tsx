@@ -98,7 +98,7 @@ export const VerificationPanel = ({
             {loading
               ? <Loader2 className="h-4 w-4 animate-spin" />
               : <RefreshCw className="h-4 w-4" />}
-            <span className="ml-1.5">{loading ? 'Vérification...' : 'Revérifier'}</span>
+            <span className="ml-1.5">{loading ? 'Vérification...' : 'Vérifier'}</span>
           </Button>
         </div>
 
@@ -116,7 +116,7 @@ export const VerificationPanel = ({
           {hasHit ? 'Risque détecté — vérification manuelle recommandée'
             : hasError ? 'Certaines vérifications ont échoué — consultez les détails ci-dessous'
             : allClear ? 'Toutes les vérifications sont conformes'
-            : 'En attente de données pour lancer les vérifications'}
+            : 'Cliquez sur "Vérifier" pour lancer les vérifications LCB-FT'}
         </div>
       </CardHeader>
 

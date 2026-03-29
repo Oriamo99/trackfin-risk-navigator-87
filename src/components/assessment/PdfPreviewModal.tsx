@@ -73,7 +73,7 @@ export const PdfPreviewModal = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl w-[95vw] h-[95vh] sm:h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Prévisualisation du PDF</DialogTitle>
         </DialogHeader>

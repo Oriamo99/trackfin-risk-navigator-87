@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useGlobalDataContext } from "@/contexts/GlobalDataContext";
 import { PdfPreviewModal } from "@/components/assessment/PdfPreviewModal";
+import { SignaturePad } from "@/components/forms/SignaturePad";
 import { PartyRiskOverview } from "@/components/assessment/PartyRiskOverview";
 import { documentInfoSchema } from "@/config/validation-schemas";
 import type { DocumentInfoFormData } from "@/config/validation-schemas";
@@ -50,10 +51,7 @@ const RiskSummary = ({ assessments, totalScore, overallRisk, apimoPropertyId, on
   const acquirerCount = globalData.acquirer.parties.length;
   const [documentInfo, setDocumentInfo] = useLocalStorage<DocumentInfo>(
     'riskSummaryDocumentInfo',
-    {
-      ...emptyDocumentInfo,
-      date: new Date().toISOString().split('T')[0],
-    }
+    { ...emptyDocumentInfo }
   );
 
   const vendorScorings: PartyScoring[] = useMemo(() =>
@@ -85,13 +83,6 @@ const RiskSummary = ({ assessments, totalScore, overallRisk, apimoPropertyId, on
   }, [globalData.vendor.parties, globalData.acquirer.parties, totalScore]);
 
   const handleFastValidation = () => {
-    if (!documentInfo.date) {
-      setDocumentInfo(prev => ({
-        ...prev,
-        date: new Date().toISOString().split('T')[0],
-      }));
-    }
-
     toast.success("Évaluation validée — vous pouvez prévisualiser le PDF");
     document.getElementById('finalization-section')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -152,12 +143,42 @@ const RiskSummary = ({ assessments, totalScore, overallRisk, apimoPropertyId, on
     toast.success("Enregistrement final effectué avec succès ! Toutes les données ont été sauvegardées.");
   };
 
+  const validateBeforeExport = (): boolean => {
+    const warnings: string[] = [];
+
+    const allParties = [...globalData.vendor.parties, ...globalData.acquirer.parties];
+    const unverified = allParties.filter(p => !p.verificationResult?.completedAt);
+    if (unverified.length > 0) {
+      warnings.push(`${unverified.length} partie(s) non vérifiée(s)`);
+    }
+
+    if (!globalData.vendor.parties.some(p =>
+      p.personType === 'physical' ? !!(p.physicalPerson.lastName && p.physicalPerson.firstName) : !!p.legalEntity.companyName
+    )) {
+      warnings.push("Aucun vendeur identifié");
+    }
+    if (!globalData.acquirer.parties.some(p =>
+      p.personType === 'physical' ? !!(p.physicalPerson.lastName && p.physicalPerson.firstName) : !!p.legalEntity.companyName
+    )) {
+      warnings.push("Aucun acquéreur identifié");
+    }
+
+    if (warnings.length > 0) {
+      return window.confirm(
+        `Attention :\n• ${warnings.join('\n• ')}\n\nVoulez-vous tout de même générer le PDF ?`
+      );
+    }
+    return true;
+  };
+
   const handlePreviewPDF = async () => {
     const valid = await trigger();
     if (!valid) {
       toast.error("Veuillez remplir tous les champs obligatoires avant de prévisualiser");
       return;
     }
+
+    if (!validateBeforeExport()) return;
 
     const snapshot = exportAllData();
     snapshot.global.summary.assessments = assessments;
@@ -325,86 +346,37 @@ const RiskSummary = ({ assessments, totalScore, overallRisk, apimoPropertyId, on
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Finalisation du Document
+            Finalisation
           </CardTitle>
-          <CardDescription>
-            Informations et signatures pour la validation du rapport
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="date">Date de rédaction *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  {...docField('date')}
-                  value={documentInfo.date}
-                />
-                <FieldError message={errors.date?.message} />
-              </div>
-              <div>
-                <Label htmlFor="location">Lieu *</Label>
-                <Input
-                  id="location"
-                  {...docField('location')}
-                  value={documentInfo.location}
-                  placeholder="Ville, bureau..."
-                />
-                <FieldError message={errors.location?.message} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-dashed border-2 border-gray-300">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-base">Signature du Conseiller *</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Input
-                      {...docField('advisorSignature')}
-                      value={documentInfo.advisorSignature}
-                      placeholder="Nom et prénom du conseiller"
-                    />
-                    <FieldError message={errors.advisorSignature?.message} />
-                    <div className="h-24 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Zone de signature</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-dashed border-2 border-gray-300">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-base">Signature du Responsable *</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <Input
-                      {...docField('managerSignature')}
-                      value={documentInfo.managerSignature}
-                      placeholder="Nom et prénom du responsable"
-                    />
-                    <FieldError message={errors.managerSignature?.message} />
-                    <div className="h-24 border-2 border-dashed border-gray-200 rounded bg-gray-50 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Zone de signature</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          <div className="max-w-md">
+            <Label htmlFor="redactorName">Rédigé par *</Label>
+            <Input
+              id="redactorName"
+              {...docField('redactorName')}
+              value={documentInfo.redactorName}
+              placeholder="Nom et prénom de l'agent"
+            />
+            <FieldError message={errors.redactorName?.message} />
+          </div>
+          <div className="max-w-md mt-4">
+            <Label>Signature</Label>
+            <SignaturePad
+              value={documentInfo.signature ?? null}
+              onChange={(sig) => setDocumentInfo(prev => ({ ...prev, signature: sig }))}
+              height={120}
+            />
           </div>
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap justify-center gap-4 pt-4">
-        <Button onClick={handleFinalSave} className="bg-green-600 hover:bg-green-700">
+      <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 pt-4">
+        <Button onClick={handleFinalSave} className="w-full sm:w-auto bg-green-600 hover:bg-green-700">
           <Save className="h-4 w-4 mr-2" />
           Enregistrement final
         </Button>
-        <Button onClick={handlePreviewPDF} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={handlePreviewPDF} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
           <FileText className="h-4 w-4 mr-2" />
           Prévisualiser le PDF
         </Button>

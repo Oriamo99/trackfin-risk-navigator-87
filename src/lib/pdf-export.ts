@@ -91,6 +91,15 @@ function addRiskBadge(pdf: jsPDF, level: string, x: number, y: number) {
   pdf.setTextColor(0, 0, 0);
 }
 
+function formatDateFR(isoDate: string): string {
+  if (!isoDate) return new Date().toLocaleDateString('fr-FR');
+  try {
+    return new Date(isoDate).toLocaleDateString('fr-FR');
+  } catch {
+    return isoDate;
+  }
+}
+
 function drawTable(
   pdf: jsPDF,
   headers: string[],
@@ -98,49 +107,90 @@ function drawTable(
   colWidths: number[],
   startY: number
 ): number {
-  const rowH = 7;
+  const cellPadding = 3;
+  const lineHeight = 4.5;
+  const fontSize = 8;
   let y = startY;
 
-  // Header row
-  y = ensureSpace(pdf, y, rowH + 2);
-  pdf.setFillColor(30, 60, 120);
-  pdf.setTextColor(255, 255, 255);
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(fontSize);
+
+  // ─── Header row ────────────────────────────────────────────
+  y = ensureSpace(pdf, y, 10);
+  const headerHeight = 8;
   let x = MARGIN;
-  headers.forEach((h, i) => {
-    pdf.rect(x, y - 5, colWidths[i], rowH, 'F');
-    pdf.text(h, x + 2, y);
+
+  for (let i = 0; i < headers.length; i++) {
+    pdf.setFillColor(30, 60, 120);
+    pdf.setDrawColor(30, 60, 120);
+    pdf.rect(x, y, colWidths[i], headerHeight, 'FD');
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(headers[i], x + cellPadding, y + headerHeight / 2 + 1);
     x += colWidths[i];
-  });
+  }
+  y += headerHeight;
+
+  // Reset for data rows
   pdf.setTextColor(0, 0, 0);
   pdf.setFont('helvetica', 'normal');
-  y += rowH - 4;
 
-  // Data rows
-  rows.forEach((row, rowIdx) => {
-    y = ensureSpace(pdf, y, rowH + 2);
-    if (rowIdx % 2 === 0) {
-      pdf.setFillColor(245, 247, 250);
-    } else {
-      pdf.setFillColor(255, 255, 255);
-    }
-    x = MARGIN;
+  // ─── Data rows ─────────────────────────────────────────────
+  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+    const row = rows[rowIdx];
+
+    // Calculate the height needed for this row
     let maxLines = 1;
-    row.forEach((cell, i) => {
-      const lines = pdf.splitTextToSize(cell, colWidths[i] - 4);
+    const cellLines: string[][] = [];
+    for (let i = 0; i < row.length; i++) {
+      const availableWidth = colWidths[i] - cellPadding * 2;
+      const lines = pdf.splitTextToSize(row[i] || '\u2014', Math.max(availableWidth, 10));
+      cellLines.push(lines);
       maxLines = Math.max(maxLines, lines.length);
-      pdf.rect(x, y - 5, colWidths[i], rowH * lines.length, 'F');
-      pdf.setDrawColor(200, 200, 200);
-      pdf.rect(x, y - 5, colWidths[i], rowH * lines.length, 'S');
-      pdf.setFontSize(8);
-      pdf.text(lines, x + 2, y);
-      x += colWidths[i];
-    });
-    y += rowH * maxLines - 4;
-  });
+    }
+    const rowHeight = Math.max(8, maxLines * lineHeight + cellPadding * 2);
 
-  return y + 3;
+    y = ensureSpace(pdf, y, rowHeight + 2);
+
+    // Draw each cell
+    x = MARGIN;
+    for (let i = 0; i < row.length; i++) {
+      // Set fill color BEFORE rect for every cell
+      if (rowIdx % 2 === 0) {
+        pdf.setFillColor(245, 247, 250);
+      } else {
+        pdf.setFillColor(255, 255, 255);
+      }
+      pdf.setDrawColor(220, 220, 220);
+
+      pdf.rect(x, y, colWidths[i], rowHeight, 'FD');
+
+      // Text
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(fontSize);
+      pdf.setFont('helvetica', 'normal');
+
+      const textY = y + cellPadding + lineHeight * 0.6;
+      for (let lineIdx = 0; lineIdx < cellLines[i].length; lineIdx++) {
+        pdf.text(
+          cellLines[i][lineIdx],
+          x + cellPadding,
+          textY + lineIdx * lineHeight
+        );
+      }
+
+      x += colWidths[i];
+    }
+
+    y += rowHeight;
+  }
+
+  // Reset state for subsequent content
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setFillColor(255, 255, 255);
+  pdf.setTextColor(0, 0, 0);
+
+  return y + 5;
 }
 
 function getPartyLabel(party: Party): string {
@@ -163,7 +213,7 @@ function buildPage1Header(pdf: jsPDF, snapshot: AppSnapshot) {
   pdf.setFontSize(18);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(255, 255, 255);
-  pdf.text('TRACFIN', PAGE_W / 2, 18, { align: 'center' });
+  pdf.text('TRACKFIN', PAGE_W / 2, 18, { align: 'center' });
   pdf.setFontSize(11);
   pdf.text('ÉVALUATION DES RISQUES DE BLANCHIMENT', PAGE_W / 2, 28, { align: 'center' });
   pdf.setFontSize(9);
@@ -319,13 +369,28 @@ function buildSingleParty(
     y = addRow(pdf, 'Fonction', e.representativePosition, y);
   }
 
-  // Documents
+  // Documents analysés (OCR)
   y += 2;
-  y = addSectionHeader(pdf, 'Documents recueillis', y);
-  const dc = party.documentChecks;
-  y = addRow(pdf, 'Justificatif de domicile', dc.justificatifDomicile ? '✓ Recueilli' : '✗ Non recueilli', y);
-  y = addRow(pdf, 'Titre de propriété', dc.titrePropriete ? '✓ Recueilli' : '✗ Non recueilli', y);
-  y = addRow(pdf, "Pièce d'identité", dc.pieceIdentite ? '✓ Recueilli' : '✗ Non recueilli', y);
+  y = addSectionHeader(pdf, 'Documents analysés', y);
+
+  const docs = party.ocrDocuments ?? [];
+  if (docs.length === 0) {
+    y = addRow(pdf, 'Documents', 'Aucun document analysé', y);
+  } else {
+    const typeLabels: Record<string, string> = {
+      cni: "Carte nationale d'identité",
+      passeport: 'Passeport',
+      kbis: 'Extrait Kbis',
+      justificatif_domicile: 'Justificatif de domicile',
+      autre: 'Autre document',
+    };
+    for (const doc of docs) {
+      const label = typeLabels[doc.detectedType] ?? doc.detectedType;
+      const date = new Date(doc.processedAt).toLocaleString('fr-FR');
+      const conf = Math.round(doc.confidence * 100);
+      y = addRow(pdf, label, `${doc.fileName} — confiance ${conf}% — analysé le ${date}`, y);
+    }
+  }
 
   // Risk checks
   y += 2;
@@ -338,7 +403,7 @@ function buildSingleParty(
       : (val ? 'Oui (risque)' : 'Non (conforme)');
     return [q.label, response, q.risk];
   });
-  y = drawTable(pdf, ['Critère', 'Réponse', 'Risque'], checkRows, [95, 50, 35], y);
+  y = drawTable(pdf, ['Critère', 'Réponse', 'Risque'], checkRows, [90, 50, 40], y);
 
   // ─── Vérifications automatisées ────────────────────────────────────────
 
@@ -485,7 +550,8 @@ function buildFundPage(pdf: jsPDF, snapshot: AppSnapshot) {
     pret_bancaire: 'Prêt bancaire', autre: 'Autre',
   };
 
-  y = addRow(pdf, 'Montant de la transaction', data.transactionAmount ? `${data.transactionAmount} €` : '—', y);
+  const cleanAmount = (data.transactionAmount || '').replace(/[\u00A0\u202F]/g, ' ').trim();
+  y = addRow(pdf, 'Montant de la transaction', cleanAmount ? `${cleanAmount} €` : '—', y);
   y = addRow(pdf, 'Mode de paiement', paymentLabels[data.paymentMethod] ?? data.paymentMethod, y);
   y = addRow(pdf, 'Origine des fonds', originLabels[data.originDescription] ?? data.originDescription, y);
   y = addRow(pdf, 'Prêt bancaire', data.bankLoan === 'oui' ? 'Oui' : data.bankLoan === 'non' ? 'Non' : '—', y);
@@ -541,7 +607,7 @@ function buildFundPage(pdf: jsPDF, snapshot: AppSnapshot) {
       : (val ? 'Oui (risque)' : 'Non (conforme)');
     return [q.label, response, q.risk];
   });
-  y = drawTable(pdf, ['Critère', 'Réponse', 'Risque'], checkRows, [95, 50, 35], y);
+  y = drawTable(pdf, ['Critère', 'Réponse', 'Risque'], checkRows, [90, 50, 40], y);
 
   // Score
   y += 4;
@@ -559,45 +625,58 @@ function buildSignaturePage(pdf: jsPDF, snapshot: AppSnapshot) {
   pdf.addPage();
   addFooter(pdf);
 
-  const di = snapshot.documentInfo;
-  let y = addPageTitle(pdf, 'SIGNATURES ET VALIDATION');
+  let y = addPageTitle(pdf, 'VALIDATION DU RAPPORT');
 
-  y = addRow(pdf, 'Date', di.date || '___________', y);
-  y = addRow(pdf, 'Lieu', di.location || '___________', y);
-  y += 12;
+  const date = formatDateFR(new Date().toISOString());
+  const redactor = snapshot.documentInfo.redactorName || '___________________________';
 
-  // Signature blocks
-  const blockW = 80;
-  const blockH = 35;
+  y = addRow(pdf, 'Rédigé par', redactor, y);
+  y = addRow(pdf, 'Date', date, y);
 
-  pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('Signature du Conseiller', MARGIN, y);
-  pdf.text('Signature du Responsable', MARGIN + blockW + 10, y);
-  pdf.setFont('helvetica', 'normal');
-  y += 5;
+  // Signature manuscrite
+  if (snapshot.documentInfo.signature) {
+    y += 5;
+    y = ensureSpace(pdf, y, 35);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Signature :', MARGIN, y);
+    pdf.setFont('helvetica', 'normal');
+    y += 3;
 
-  pdf.setFontSize(9);
-  pdf.text(di.advisorSignature || '___________________________', MARGIN, y);
-  pdf.text(di.managerSignature || '___________________________', MARGIN + blockW + 10, y);
-  y += 6;
+    try {
+      pdf.addImage(snapshot.documentInfo.signature, 'PNG', MARGIN, y, 60, 25);
+      y += 28;
+    } catch {
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('(signature non disponible)', MARGIN, y + 5);
+      pdf.setTextColor(0, 0, 0);
+      y += 10;
+    }
+  }
 
-  // Signature boxes
-  pdf.setDrawColor(100, 100, 100);
-  pdf.rect(MARGIN, y, blockW, blockH, 'S');
-  pdf.rect(MARGIN + blockW + 10, y, blockW, blockH, 'S');
+  y += 10;
 
+  // Mention légale
   pdf.setFontSize(8);
-  pdf.setTextColor(150, 150, 150);
-  pdf.text('Zone de signature', MARGIN + blockW / 2, y + blockH / 2, { align: 'center' });
-  pdf.text('Zone de signature', MARGIN + blockW + 10 + blockW / 2, y + blockH / 2, { align: 'center' });
+  pdf.setTextColor(120, 120, 120);
+  const legalText = [
+    "Ce rapport a été généré dans le cadre des obligations de vigilance LCB-FT",
+    "prévues par les articles L.561-1 et suivants du Code monétaire et financier.",
+    "Il doit être conservé pendant 5 ans conformément à l'article L.561-12 du CMF.",
+  ];
+  for (const line of legalText) {
+    y = ensureSpace(pdf, y, 5);
+    pdf.text(line, MARGIN, y);
+    y += 4;
+  }
   pdf.setTextColor(0, 0, 0);
 }
 
 // ─── Main export function ─────────────────────────────────────────────────
 
 /**
- * Génère le PDF TRACFIN et retourne le blob + le nom de fichier suggéré.
+ * Génère le PDF TRACKFIN et retourne le blob + le nom de fichier suggéré.
  * Ne déclenche PAS de téléchargement automatique.
  */
 export function generatePDF(snapshot: AppSnapshot): { blob: Blob; fileName: string } {
@@ -619,8 +698,7 @@ export function generatePDF(snapshot: AppSnapshot): { blob: Blob; fileName: stri
   // Signatures
   buildSignaturePage(pdf, snapshot);
 
-  const date = snapshot.documentInfo.date || new Date().toISOString().split('T')[0];
-  const fileName = `TRACFIN_Evaluation_${date}.pdf`;
+  const fileName = `TRACKFIN_Evaluation_${new Date().toISOString().split('T')[0]}.pdf`;
 
   const blob = pdf.output('blob');
   return { blob, fileName };

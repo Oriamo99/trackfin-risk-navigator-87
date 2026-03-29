@@ -53,7 +53,7 @@ function useTabCompleteness() {
 
   useEffect(() => {
     const check = () => {
-      const global = readLS<GlobalAppData>('tracfinGlobalData', defaultGlobalAppData);
+      const global = readLS<GlobalAppData>('trackfinGlobalData', defaultGlobalAppData);
 
       const vendorOk = global.vendor?.parties?.some(isPartyComplete) ?? false;
       const acquirerOk = global.acquirer?.parties?.some(isPartyComplete) ?? false;
@@ -62,7 +62,7 @@ function useTabCompleteness() {
       const fundsOk = !!(fundData.transactionAmount && fundData.paymentMethod && fundData.originDescription);
 
       const docInfo = readLS<DocumentInfo>('riskSummaryDocumentInfo', { ...emptyDocumentInfo });
-      const summaryOk = !!(docInfo.date && docInfo.location && docInfo.advisorSignature && docInfo.managerSignature);
+      const summaryOk = !!(docInfo.redactorName);
 
       setStatus({ vendor: vendorOk, acquirer: acquirerOk, funds: fundsOk, summary: summaryOk });
     };
@@ -101,6 +101,7 @@ const IndexContent = () => {
   const { globalData, updateTransactionInfo, updateSummaryData, setGlobalData, resetAllData } = useGlobalDataContext();
   const [activeTab, setActiveTab] = useState('vendor');
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
+  const [changePropertyDialogOpen, setChangePropertyDialogOpen] = useState(false);
   const [assessments, setAssessments] = useState({
     vendor: { score: 0, level: 'Faible' },
     acquirer: { score: 0, level: 'Faible' },
@@ -120,6 +121,19 @@ const IndexContent = () => {
   });
 
   const tabStatus = useTabCompleteness();
+
+  // ─── beforeunload guard ─────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      const hasUnsaved = globalData.vendor.parties.some(isPartyComplete) ||
+        globalData.acquirer.parties.some(isPartyComplete);
+      if (hasUnsaved && appMode === 'form') {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [globalData, appMode]);
 
   useEffect(() => {
     updateTransactionInfo({ transactionType, propertyType });
@@ -145,7 +159,7 @@ const IndexContent = () => {
 
   // ─── Reset handler ──────────────────────────────────────────────────
 
-  const handleReset = useCallback(() => {
+  const performFullReset = useCallback(() => {
     resetAllData();
     setSelectedProperty(null);
     setTransactionType('');
@@ -155,12 +169,27 @@ const IndexContent = () => {
       acquirer: { score: 0, level: 'Faible' },
       fundOrigin: { score: 0, level: 'Faible' },
     });
+    setActiveTab('vendor');
     setCleanupDialogOpen(false);
+    setChangePropertyDialogOpen(false);
     if (isApimoConfigured()) {
       setAppMode('select-property');
     }
     toast.success("Dossier réinitialisé. Vous pouvez commencer une nouvelle évaluation.");
   }, [resetAllData]);
+
+  const hasData = useCallback(() => {
+    return globalData.vendor.parties.some(isPartyComplete) ||
+      globalData.acquirer.parties.some(isPartyComplete);
+  }, [globalData]);
+
+  const handleChangeProperty = useCallback(() => {
+    if (hasData()) {
+      setChangePropertyDialogOpen(true);
+    } else {
+      performFullReset();
+    }
+  }, [hasData, performFullReset]);
 
   // ─── Apimo property selection handler ────────────────────────────────
 
@@ -240,7 +269,7 @@ const IndexContent = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-4xl font-bold text-gray-900 tracking-widest">T R A C F I N</h1>
+            <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 tracking-widest">T R A C K F I N</h1>
           </div>
           <p className="text-xl text-gray-600 mb-2">Lutte contre le blanchiment des capitaux</p>
           <p className="text-lg text-gray-500">Évaluation des risques et classification</p>
@@ -251,7 +280,7 @@ const IndexContent = () => {
               variant="ghost"
               size="sm"
               className="mt-3 text-gray-500"
-              onClick={() => setAppMode('select-property')}
+              onClick={handleChangeProperty}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Changer de bien
@@ -270,7 +299,7 @@ const IndexContent = () => {
         {/* Transaction and Property Selection */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center justify-center gap-2">
               <Building className="h-5 w-5" />
               Informations de la Transaction
             </CardTitle>
@@ -356,23 +385,23 @@ const IndexContent = () => {
 
         {/* Assessment Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="vendor" className="flex items-center gap-2">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full mb-8">
+            <TabsTrigger value="vendor" className="flex items-center justify-center gap-2">
               <Users className="h-4 w-4" />
               Vendeurs
               <CompleteDot complete={tabStatus.vendor} />
             </TabsTrigger>
-            <TabsTrigger value="acquirer" className="flex items-center gap-2">
+            <TabsTrigger value="acquirer" className="flex items-center justify-center gap-2">
               <Building className="h-4 w-4" />
               Acquéreurs
               <CompleteDot complete={tabStatus.acquirer} />
             </TabsTrigger>
-            <TabsTrigger value="funds" className="flex items-center gap-2">
+            <TabsTrigger value="funds" className="flex items-center justify-center gap-2">
               <Coins className="h-4 w-4" />
               Provenance des fonds
               <CompleteDot complete={tabStatus.funds} />
             </TabsTrigger>
-            <TabsTrigger value="summary" className="flex items-center gap-2">
+            <TabsTrigger value="summary" className="flex items-center justify-center gap-2">
               <Shield className="h-4 w-4" />
               Résumé
               <CompleteDot complete={tabStatus.summary} />
@@ -398,8 +427,8 @@ const IndexContent = () => {
               overallRisk={overallRisk}
               apimoPropertyId={selectedProperty?.id ?? null}
               onApimoUploadSuccess={() => {
-                toast.success("PDF envoyé vers Apimo ! Vous pouvez démarrer une nouvelle évaluation.");
-                setCleanupDialogOpen(true);
+                toast.success("PDF envoyé vers Apimo ! Réinitialisation dans quelques secondes…");
+                setTimeout(() => performFullReset(), 2000);
               }}
               onNavigateToTab={setActiveTab}
               onResetRequest={() => setCleanupDialogOpen(true)}
@@ -421,8 +450,29 @@ const IndexContent = () => {
               <Button variant="outline" onClick={() => setCleanupDialogOpen(false)}>
                 Annuler
               </Button>
-              <Button variant="destructive" onClick={handleReset}>
+              <Button variant="destructive" onClick={performFullReset}>
                 Réinitialiser
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Change property confirmation dialog */}
+        <Dialog open={changePropertyDialogOpen} onOpenChange={setChangePropertyDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Changer de bien</DialogTitle>
+              <DialogDescription>
+                Des données ont déjà été saisies pour ce dossier.
+                Changer de bien réinitialisera toutes les données. Voulez-vous continuer ?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setChangePropertyDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button variant="destructive" onClick={performFullReset}>
+                Changer de bien
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -1,8 +1,8 @@
-# TRACFIN Risk Navigator
+# TRACKFIN Risk Navigator
 
 ## Project Overview
 
-TRACFIN Risk Navigator is a French anti-money laundering (AML) risk assessment tool for real estate agents. It generates PDF compliance reports (évaluation LCB-FT) from property transaction data, with automated sanctions/GAFI/PPE checks. The app is an **ephemeral PDF generator**: localStorage = temporary draft only, PDF is the deliverable, sent to Apimo CRM then data is cleared.
+TRACKFIN Risk Navigator is a French anti-money laundering (AML) risk assessment tool for real estate agents. It generates PDF compliance reports (évaluation LCB-FT) from property transaction data, with automated sanctions/GAFI/PPE checks. The app is an **ephemeral PDF generator**: localStorage = temporary draft only, PDF is the deliverable, sent to Apimo CRM then data is cleared.
 
 **Target users**: Real estate agents using Apimo CRM in France.
 **Language**: All UI text is in French. Code comments and variable names in English.
@@ -25,11 +25,13 @@ npm install         # Install dependencies
 npm run dev         # Dev server on port 8080
 npm run build       # Production build
 npm run lint        # Run ESLint
+npm run test        # Run Vitest tests (once)
+npm run test:watch  # Run Vitest in watch mode
 ```
 
 ## Current Architecture
 
-Prompts 1–10 completed: cleanup, restructure, component refactoring, data layer, validation, multi-party support, Apimo integration, automated verifications, PDF preview + upload + cleanup, risk profile detection + fast mode. Prompt 11 pending.
+Prompts 1–11 completed: cleanup, restructure, component refactoring, data layer, validation, multi-party support, Apimo integration, automated verifications, PDF preview + upload + cleanup, risk profile detection + fast mode, polish + responsive + signature + tests.
 
 ```
 src/
@@ -43,7 +45,8 @@ src/
 │   ├── ui/                          # shadcn/ui primitives (only used ones)
 │   ├── forms/
 │   │   ├── PersonForm.tsx           # Shared form for physical/legal person
-│   │   └── CountrySelect.tsx        # Country selector
+│   │   ├── CountrySelect.tsx        # Country selector
+│   │   └── SignaturePad.tsx         # Canvas signature pad (mouse + touch)
 │   ├── assessment/
 │   │   ├── PartyAssessment.tsx      # Generic vendor/acquirer assessment
 │   │   ├── RiskAssessmentTable.tsx  # Risk evaluation table with RadioGroup + auto-flags
@@ -60,24 +63,29 @@ src/
 │   │   └── FundsDocumentChecklist.tsx # Declarative checkboxes for fund proofs
 │   └── apimo/
 │       └── PropertySelector.tsx     # Property picker from Apimo
+├── contexts/
+│   └── GlobalDataContext.tsx       # Centralized global state provider
 ├── config/
 │   ├── apimo.ts                     # Env vars only (VITE_APIMO_* in .env.local)
 │   ├── countries.ts                 # Country list (single source of truth)
 │   ├── gafi-lists.ts               # GAFI black/grey lists + country aliases + staleness check
+│   ├── gafi-lists.test.ts          # Vitest tests for GAFI checks
 │   ├── ocr-prompts.ts             # Mistral OCR prompts per document type
 │   ├── ppe.ts                      # PPE categories (art. R.561-18 CMF)
 │   ├── risk-questions.ts           # Risk criteria definitions
 │   ├── risk-scoring.ts             # Scoring logic + thresholds
+│   ├── risk-scoring.test.ts        # Vitest tests for scoring
 │   └── validation-schemas.ts       # Zod schemas for all forms
 ├── services/
 │   ├── apimo.ts                    # Apimo REST API client (via Vite proxy in dev)
-│   ├── apimo-mapper.ts            # Apimo → TRACFIN data mapping
+│   ├── apimo-mapper.ts            # Apimo → TRACKFIN data mapping
+│   ├── apimo-mapper.test.ts       # Vitest tests for Apimo mapping
 │   ├── document-ocr.ts            # Mistral OCR client + field mappers
 │   ├── sanctions-check.ts         # DG Trésor API client + name matching
 │   └── verification-service.ts    # Orchestrator: sanctions + GAFI + PPE
 ├── hooks/
 │   ├── useGlobalData.ts            # Typed global state
-│   └── useVerification.ts         # Auto-verification with debounce
+│   └── useVerification.ts         # Manual verification (button-triggered)
 ├── types/
 │   ├── index.ts                    # All TypeScript interfaces + VerificationResult
 │   └── apimo.ts                    # Apimo API response types
@@ -91,7 +99,7 @@ src/
 
 ```
 1. Apimo configured (.env.local) → PropertySelector → select property
-2. TRACFIN form (4 tabs):
+2. TRACKFIN form (4 tabs):
    a. Vendors tab: document drop zone (OCR auto-detect) + pre-filled form + auto-verifications
    b. Acquirers tab: same as vendors
    c. Funds tab: document checklist (declarative checkboxes) + risk questions
@@ -109,7 +117,7 @@ If Mistral OCR not configured → hide drop zones, manual entry only
 - **CORS**: Vite dev proxy at `/apimo-api` → `api.apimo.pro`. Production needs a backend proxy (`VITE_APIMO_PROXY_URL`).
 - **Endpoints used**: `/agencies/{id}/properties` (list, filter `step=1`), `/agencies/{id}/properties/{id}` (detail), `/agencies/{id}/contacts/{id}` (single contact), `/agencies/{id}/properties/{id}/documents` (POST multipart/form-data — upload PDF)
 - **Apimo referentials**: `category` = transaction type (1=Vente, 2=Location, etc.), `type` = property type (1=Appartement, 2=Maison, etc.). Contact `category`: "1"=particulier, "2"=couple, "3"=société. Property `owner`/`tenant` = contact ID (string), not embedded objects.
-- **Mapper**: `apimo-mapper.ts` converts Apimo data to TRACFIN form fields. Must be fault-tolerant (optional chaining everywhere, never crash on missing fields).
+- **Mapper**: `apimo-mapper.ts` converts Apimo data to TRACKFIN form fields. Must be fault-tolerant (optional chaining everywhere, never crash on missing fields).
 
 ## Automated Verifications [Prompt 8]
 
@@ -180,7 +188,7 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 | 8 | ✅ Done | Automated verifications (DG Trésor, GAFI, PPE) |
 | 9 | ✅ Done | PDF preview + Apimo upload + cleanup flow |
 | 10 | ✅ Done | Risk profile detection + fast mode |
-| 11 | 🔲 | Polish, responsive, beforeunload, tests |
+| 11 | ✅ Done | Polish, responsive, signature, reset, beforeunload, tests |
 
 ## Risk Assessment UX [Prompt 10]
 
@@ -205,7 +213,7 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 - No `any` types. Use proper interfaces or `unknown` with type guards.
 - All API calls wrapped in try/catch with user-friendly error messages in French.
 - External API services are singletons (class instances exported from service files).
-- Global state (tracfinGlobalData) is accessed via GlobalDataContext, never by calling useGlobalData() directly in components. Only GlobalDataProvider calls useGlobalData(). Components use useGlobalDataContext().
+- Global state (trackfinGlobalData) is accessed via GlobalDataContext, never by calling useGlobalData() directly in components. Only GlobalDataProvider calls useGlobalData(). Components use useGlobalDataContext().
 
 ## Things to NEVER do
 
@@ -230,3 +238,6 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 - Do NOT auto-fill subjective risk questions — only verifiable facts can be pre-checked.
 - Do NOT bypass PDF preview in fast mode — fast mode scrolls to signatures, it doesn't skip steps.
 - Do NOT call useGlobalData() directly in components — use useGlobalDataContext() instead. Multiple instances of useLocalStorage on the same key cause state overwrites.
+- Do NOT auto-trigger verifications on field change — verifications are manual (button click only).
+- Do NOT use external signature libraries — SignaturePad is a native canvas component.
+- Do NOT navigate to property selector without checking for unsaved data — use handleChangeProperty with confirmation dialog.

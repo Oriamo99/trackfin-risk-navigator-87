@@ -7,8 +7,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Building, Save, Plus, Trash2, AlertTriangle, AlertCircle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
-import { toast } from "sonner";
+import { Users, Building, Plus, Trash2, AlertTriangle, AlertCircle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
 import { PersonForm } from "@/components/forms/PersonForm";
 import { OfficialVerificationLinks } from "@/components/verification/OfficialVerificationLinks";
 import { VerificationPanel } from "@/components/verification/VerificationPanel";
@@ -32,8 +31,6 @@ const sideConfig = {
     title: 'Informations des Vendeurs',
     description: 'Saisie des informations détaillées des vendeurs',
     riskTitle: 'Vendeurs',
-    saveMessage: 'Données des vendeurs sauvegardées avec succès !',
-    saveLabel: 'Sauvegarder les données vendeurs',
     singularLabel: 'Vendeur',
     addLabel: 'Ajouter un vendeur',
     showAcquirerFields: false,
@@ -43,8 +40,6 @@ const sideConfig = {
     title: "Informations des Acquéreurs",
     description: "Saisie des informations détaillées des acquéreurs",
     riskTitle: 'Acquéreurs',
-    saveMessage: 'Données des acquéreurs sauvegardées avec succès !',
-    saveLabel: 'Sauvegarder les données acquéreurs',
     singularLabel: 'Acquéreur',
     addLabel: 'Ajouter un acquéreur',
     showAcquirerFields: true,
@@ -223,10 +218,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
   };
 
 
-  const handleSave = () => {
-    toast.success(cfg.saveMessage);
-  };
-
   const partyDataForForm = {
     physicalPerson: selectedParty.physicalPerson,
     legalEntity: selectedParty.legalEntity,
@@ -254,7 +245,7 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
                     <div
                       key={party.id}
                       onClick={() => setSelectedPartyId(party.id)}
-                      className={`relative cursor-pointer rounded-lg border-2 p-3 min-w-[180px] max-w-[250px] transition-colors ${
+                      className={`relative cursor-pointer rounded-lg border-2 p-3 w-full sm:w-auto sm:min-w-[180px] sm:max-w-[250px] transition-colors ${
                         isSelected
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 bg-white hover:border-gray-300'
@@ -404,7 +395,7 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
                 </div>
               </button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4">
+            <CollapsibleContent className="mt-4 overflow-x-auto">
               <RiskAssessmentTable
                 questions={partyQuestions}
                 checks={selectedParty.riskChecks}
@@ -417,13 +408,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
             </CollapsibleContent>
           </div>
         </Collapsible>
-
-        <div className="text-center">
-          <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-            <Save className="h-4 w-4 mr-2" />
-            {cfg.saveLabel}
-          </Button>
-        </div>
 
         {/* Delete confirmation dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

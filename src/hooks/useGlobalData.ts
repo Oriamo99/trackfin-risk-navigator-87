@@ -27,7 +27,7 @@ import type {
 // ─── localStorage keys still used ───────────────────────────────────────
 
 const STORAGE_KEYS = [
-  'tracfinGlobalData',
+  'trackfinGlobalData',
   'fundOriginChecks',
   'fundData',
   'fundsDocumentChecks',
@@ -58,7 +58,7 @@ function migrateOldData(): GlobalAppData | null {
   if (!hasOldKeys) return null;
 
   // Read existing global data as base
-  const existing = readKey<GlobalAppData>('tracfinGlobalData', defaultGlobalAppData);
+  const existing = readKey<GlobalAppData>('trackfinGlobalData', defaultGlobalAppData);
 
   // Already migrated? (has parties with data)
   if (existing.vendor?.parties?.length > 0 && existing.vendor.parties[0].physicalPerson.lastName !== '') {
@@ -113,7 +113,7 @@ function migrateOldData(): GlobalAppData | null {
 
 export const useGlobalData = () => {
   const [globalData, setGlobalData] = useLocalStorage<GlobalAppData>(
-    'tracfinGlobalData',
+    'trackfinGlobalData',
     defaultGlobalAppData
   );
 
@@ -185,7 +185,7 @@ export const useGlobalData = () => {
   }, [setGlobalData]);
 
   const exportAllData = useCallback((): AppSnapshot => ({
-    global: readKey<GlobalAppData>('tracfinGlobalData', defaultGlobalAppData),
+    global: readKey<GlobalAppData>('trackfinGlobalData', defaultGlobalAppData),
     fund: {
       data: readKey<FundData>('fundData', {
         originDescription: '',

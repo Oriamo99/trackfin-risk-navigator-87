@@ -86,6 +86,15 @@ export interface FundData {
   lenderBank: string;
 }
 
+// ─── OCR document record ─────────────────────────────────────────────────
+
+export interface OcrDocumentRecord {
+  fileName: string;
+  detectedType: string;
+  confidence: number;
+  processedAt: string;
+}
+
 // ─── Party (individual vendor or acquirer) ───────────────────────────────
 
 export interface Party {
@@ -95,6 +104,7 @@ export interface Party {
   legalEntity: LegalEntity;
   documentChecks: DocumentChecks;
   riskChecks: Record<string, boolean>;
+  ocrDocuments: OcrDocumentRecord[];
   apimoContactId?: number;
   verificationResult?: VerificationResult;
 }
@@ -116,10 +126,8 @@ export interface Assessment {
 // ─── Document & summary ───────────────────────────────────────────────────
 
 export interface DocumentInfo {
-  date: string;
-  location: string;
-  advisorSignature: string;
-  managerSignature: string;
+  redactorName: string;
+  signature: string | null;
 }
 
 export interface SummaryData {
@@ -135,7 +143,7 @@ export interface TransactionInfo {
   propertyType: string;
 }
 
-// ─── Global app state (stored under key "tracfinGlobalData") ──────────────
+// ─── Global app state (stored under key "trackfinGlobalData") ──────────────
 
 export interface GlobalAppData {
   summary: SummaryData;
@@ -219,10 +227,8 @@ export const DEFAULT_FUNDS_DOCUMENT_CHECKS: FundsDocumentChecks = {
 };
 
 export const emptyDocumentInfo: DocumentInfo = {
-  date: '',
-  location: '',
-  advisorSignature: '',
-  managerSignature: '',
+  redactorName: '',
+  signature: null,
 };
 
 export const defaultRiskChecks: Record<string, boolean> = {
@@ -255,6 +261,7 @@ export function createEmptyParty(): Party {
     legalEntity: { ...emptyLegalEntity },
     documentChecks: { ...emptyDocumentChecks },
     riskChecks: { ...defaultRiskChecks },
+    ocrDocuments: [],
   };
 }
 

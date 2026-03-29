@@ -5,7 +5,7 @@ import { FileUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyzeDocument, isMistralConfigured, mapExtractedFields, type OcrExtraction } from '@/services/document-ocr';
 import { ExtractionResult } from './ExtractionResult';
-import type { Party, PhysicalPerson, LegalEntity, DocumentChecks } from '@/types';
+import type { Party, PhysicalPerson, LegalEntity, DocumentChecks, OcrDocumentRecord } from '@/types';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -98,6 +98,23 @@ export const DocumentDropZone = ({ party, onFieldsExtracted }: DocumentDropZoneP
         docChecks.kbis = true;
       }
       updates.documentChecks = docChecks;
+
+      // Record OCR document in party
+      const docRecord: OcrDocumentRecord = {
+        fileName: extraction.fileName,
+        detectedType: extraction.detectedType,
+        confidence: extraction.confidence,
+        processedAt: extraction.processedAt,
+      };
+      const existingDocs = p.ocrDocuments ?? [];
+      const existingIdx = existingDocs.findIndex(d => d.fileName === extraction.fileName);
+      if (existingIdx !== -1) {
+        const updatedDocs = [...existingDocs];
+        updatedDocs[existingIdx] = docRecord;
+        updates.ocrDocuments = updatedDocs;
+      } else {
+        updates.ocrDocuments = [...existingDocs, docRecord];
+      }
 
       callbackRef.current(updates);
 

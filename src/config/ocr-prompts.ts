@@ -46,7 +46,7 @@ Format de réponse attendu :
   "fields": {
     // Pour CNI / Passeport :
     "last_name": "nom de famille",
-    "first_name": "prénom(s)",
+    "first_name": "1er prénom",
     "birth_date": "JJ/MM/AAAA",
     "birth_place": "lieu de naissance",
     "nationality": "nationalité",

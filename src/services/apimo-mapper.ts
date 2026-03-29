@@ -48,7 +48,7 @@ export function getPropertyAmount(property: ApimoProperty): string {
 // ─── Contact → Party ─────────────────────────────────────────────────────
 
 /**
- * Map an Apimo contact to a Party object for the TRACFIN form.
+ * Map an Apimo contact to a Party object for the TRACKFIN form.
  * Contact category: "1" = particulier, "2" = couple, "3" = société.
  */
 export function mapContactToParty(contact: ApimoContact): Party {
