@@ -205,12 +205,29 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 - Fast validation mode available when all verifications are clear and global score ≤ 5
 - Tabs are controlled (`value`/`onValueChange`) to allow navigation from Summary → vendor/acquirer via PartyRiskOverview "Modifier" links
 
+## Deployment (Coolify on Hostinger VPS)
+
+- **Docker multi-stage build**: `Dockerfile` builds React app, then serves via Express
+- **Express proxy** (`server/proxy.js`): serves static `dist/` files + proxies API calls
+  - `/api/mistral` → `https://api.mistral.ai` (adds `MISTRAL_API_KEY` header)
+  - `/api/apimo` → `https://api.apimo.pro` (adds Basic Auth from `APIMO_PROVIDER_ID` + `APIMO_TOKEN`)
+  - `/api/dgtresor` → `https://gels-avoirs.dgtresor.gouv.fr` (CORS workaround)
+  - `/api/health` → healthcheck endpoint for Coolify
+- **Environment variables** (set in Coolify, NOT in image):
+  - `MISTRAL_API_KEY` — Mistral OCR API key
+  - `APIMO_PROVIDER_ID` — Apimo provider ID
+  - `APIMO_TOKEN` — Apimo API token
+  - `APIMO_AGENCY_ID` — Apimo agency ID (also needed as `VITE_APIMO_AGENCY_ID` at build time)
+  - `PORT` — server port (default 3000)
+- **Frontend services in production**: use `/api/*` paths (no auth headers, proxy adds them)
+- **Frontend services in dev**: use Vite proxy (`/apimo-api`, `/mistral-api`) with `VITE_*` env vars
+
 ## Security
 
 - CSP defined in `index.html` (`default-src 'self'`, `connect-src` for Mistral, Apimo, DG Trésor)
 - `api-guard.ts`: console.error warning if API keys are exposed in production builds without proxy URLs
 - Signature biométrique supprimée du localStorage after PDF generation (RGPD) and on page `unload`
-- In production: use `VITE_MISTRAL_PROXY_URL` and `VITE_APIMO_PROXY_URL` to route API calls through a backend proxy
+- In production: API keys are server-side only (Express proxy). No `VITE_*` API keys in production builds.
 
 ## GAFI Data
 

@@ -5,9 +5,9 @@
 import { AUTO_DETECT_PROMPT, type DetectedDocumentType } from '@/config/ocr-prompts';
 import type { PhysicalPerson, LegalEntity } from '@/types';
 
-const MISTRAL_BASE_URL = import.meta.env.DEV
-  ? '/mistral-api'
-  : (import.meta.env.VITE_MISTRAL_PROXY_URL as string || 'https://api.mistral.ai');
+const MISTRAL_BASE_URL = import.meta.env.PROD
+  ? '/api/mistral'
+  : '/mistral-api';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -42,8 +42,9 @@ function isImage(file: File): boolean {
   return file.type.startsWith('image/');
 }
 
-/** Check if Mistral API key is configured */
+/** Check if Mistral API key is configured (in prod, proxy handles auth) */
 export function isMistralConfigured(): boolean {
+  if (import.meta.env.PROD) return true;
   const key = import.meta.env.VITE_MISTRAL_API_KEY as string | undefined;
   return !!key?.trim();
 }
@@ -60,7 +61,7 @@ function convertDateToISO(dateStr: string): string {
 
 export async function analyzeDocument(file: File): Promise<OcrExtraction> {
   const processedAt = new Date().toISOString();
-  const apiKey = import.meta.env.VITE_MISTRAL_API_KEY as string;
+  const apiKey = import.meta.env.VITE_MISTRAL_API_KEY as string | undefined;
 
   const fail = (msg: string): OcrExtraction => ({
     success: false,
@@ -74,7 +75,7 @@ export async function analyzeDocument(file: File): Promise<OcrExtraction> {
     processedAt,
   });
 
-  if (!apiKey) return fail('Clé API Mistral non configurée (VITE_MISTRAL_API_KEY)');
+  if (!import.meta.env.PROD && !apiKey) return fail('Clé API Mistral non configurée (VITE_MISTRAL_API_KEY)');
   if (!isImage(file) && !isPdf(file)) return fail('Format non supporté. Utilisez JPEG, PNG ou PDF.');
 
   try {
@@ -116,12 +117,14 @@ export async function analyzeDocument(file: File): Promise<OcrExtraction> {
       ...(isPdf(file) ? { pages: [0] } : {}),
     };
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
     const response = await fetch(`${MISTRAL_BASE_URL}/v1/ocr`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 

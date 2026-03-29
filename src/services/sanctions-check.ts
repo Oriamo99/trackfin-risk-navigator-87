@@ -72,10 +72,13 @@ async function loadRegistry(): Promise<SanctionEntry[]> {
     return cachedRegistry;
   }
 
-  const response = await fetch(
-    'https://gels-avoirs.dgtresor.gouv.fr/ApiPublic/api/v1/Registre_detail/get_registre_actif',
-    { headers: { Accept: 'application/json' } },
-  );
+  const url = import.meta.env.PROD
+    ? '/api/dgtresor/ApiPublic/api/v1/Registre_detail/get_registre_actif'
+    : 'https://gels-avoirs.dgtresor.gouv.fr/ApiPublic/api/v1/Registre_detail/get_registre_actif';
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+  });
 
   if (!response.ok) {
     throw new Error(`DG Trésor API error: ${response.status}`);

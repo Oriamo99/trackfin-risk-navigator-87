@@ -6,10 +6,10 @@ import type {
 } from '@/types/apimo';
 
 // In dev, requests go through Vite's proxy to avoid CORS.
-// In production, set VITE_APIMO_PROXY_URL to your backend proxy.
-const APIMO_BASE_URL = import.meta.env.DEV
-  ? '/apimo-api'
-  : (import.meta.env.VITE_APIMO_PROXY_URL as string || 'https://api.apimo.pro');
+// In production, requests go through the Express proxy at /api/apimo.
+const APIMO_BASE_URL = import.meta.env.PROD
+  ? '/api/apimo'
+  : '/apimo-api';
 
 export class ApimoError extends Error {
   constructor(public status: number, message: string) {
@@ -19,25 +19,34 @@ export class ApimoError extends Error {
 }
 
 class ApimoService {
-  private getAuthHeader(): string {
+  private getAuthHeader(): string | null {
+    // In production, the proxy server handles auth
+    if (import.meta.env.PROD) return null;
     const creds = getApimoCredentials();
     if (!creds) throw new ApimoError(0, 'Apimo non configuré');
     return 'Basic ' + btoa(`${creds.providerId}:${creds.token}`);
   }
 
   private getAgencyId(): string {
+    // In production, read agency ID from env (set at build time or via proxy)
+    if (import.meta.env.PROD) {
+      return import.meta.env.VITE_APIMO_AGENCY_ID as string || '';
+    }
     const creds = getApimoCredentials();
     if (!creds) throw new ApimoError(0, 'Apimo non configuré');
     return creds.agencyId;
   }
 
   private async request<T>(endpoint: string): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const auth = this.getAuthHeader();
+    if (auth) headers['Authorization'] = auth;
+
     const response = await fetch(`${APIMO_BASE_URL}${endpoint}`, {
       method: 'GET',
-      headers: {
-        'Authorization': this.getAuthHeader(),
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -98,13 +107,15 @@ class ApimoService {
     formData.append('file', fileBlob, fileName);
     formData.append('label', label ?? `Évaluation TRACKFIN — ${new Date().toLocaleDateString('fr-FR')}`);
 
+    const headers: Record<string, string> = {};
+    const auth = this.getAuthHeader();
+    if (auth) headers['Authorization'] = auth;
+
     const response = await fetch(
       `${APIMO_BASE_URL}/agencies/${agencyId}/properties/${propertyId}/documents`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': this.getAuthHeader(),
-        },
+        headers,
         body: formData,
       },
     );

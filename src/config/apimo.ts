@@ -20,5 +20,7 @@ export function getApimoCredentials(): ApimoCredentials | null {
 }
 
 export function isApimoConfigured(): boolean {
+  // In production, the proxy handles auth — Apimo is always available
+  if (import.meta.env.PROD) return true;
   return getApimoCredentials() !== null;
 }
