@@ -18,6 +18,8 @@ export class ApimoError extends Error {
   }
 }
 
+let _cachedAgencyId: string | null = null;
+
 class ApimoService {
   private getAuthHeader(): string | null {
     // In production, the proxy server handles auth
@@ -27,14 +29,24 @@ class ApimoService {
     return 'Basic ' + btoa(`${creds.providerId}:${creds.token}`);
   }
 
-  private getAgencyId(): string {
-    // In production, read agency ID from env (set at build time or via proxy)
-    if (import.meta.env.PROD) {
-      return import.meta.env.VITE_APIMO_AGENCY_ID as string || '';
+  private async getAgencyId(): Promise<string> {
+    if (!import.meta.env.PROD) {
+      const creds = getApimoCredentials();
+      if (!creds) throw new ApimoError(0, 'Apimo non configuré');
+      return creds.agencyId;
     }
-    const creds = getApimoCredentials();
-    if (!creds) throw new ApimoError(0, 'Apimo non configuré');
-    return creds.agencyId;
+
+    if (_cachedAgencyId !== null) return _cachedAgencyId;
+
+    try {
+      const res = await fetch('/api/config');
+      const config = await res.json() as { apimoAgencyId?: string };
+      _cachedAgencyId = config.apimoAgencyId || '';
+      return _cachedAgencyId;
+    } catch {
+      console.error('[Apimo] Failed to fetch config');
+      return '';
+    }
   }
 
   private async request<T>(endpoint: string): Promise<T> {
@@ -65,7 +77,7 @@ class ApimoService {
    * TODO: pagination if total_items > limit (max 1000 per request)
    */
   async getProperties(): Promise<ApimoProperty[]> {
-    const agencyId = this.getAgencyId();
+    const agencyId = await this.getAgencyId();
     const data = await this.request<ApimoPropertiesResponse>(
       `/agencies/${agencyId}/properties?step=1&limit=1000`
     );
@@ -77,7 +89,7 @@ class ApimoService {
    * Note: contacts are referenced by ID (owner, tenant), not embedded.
    */
   async getProperty(propertyId: number): Promise<ApimoProperty> {
-    const agencyId = this.getAgencyId();
+    const agencyId = await this.getAgencyId();
     return this.request<ApimoProperty>(
       `/agencies/${agencyId}/properties/${propertyId}`
     );
@@ -87,7 +99,7 @@ class ApimoService {
    * Get a contact by ID.
    */
   async getContact(contactId: string | number): Promise<ApimoContact> {
-    const agencyId = this.getAgencyId();
+    const agencyId = await this.getAgencyId();
     return this.request<ApimoContact>(
       `/agencies/${agencyId}/contacts/${contactId}`
     );
@@ -102,7 +114,7 @@ class ApimoService {
     fileName: string,
     label?: string,
   ): Promise<void> {
-    const agencyId = this.getAgencyId();
+    const agencyId = await this.getAgencyId();
     const formData = new FormData();
     formData.append('file', fileBlob, fileName);
     formData.append('label', label ?? `Évaluation TRACKFIN — ${new Date().toLocaleDateString('fr-FR')}`);

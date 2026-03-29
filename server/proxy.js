@@ -67,6 +67,13 @@ app.use('/api/dgtresor', createProxyMiddleware({
   },
 }));
 
+// ─── Config publique (valeurs non sensibles) ─────────────────
+app.get('/api/config', (req, res) => {
+  res.json({
+    apimoAgencyId: process.env.APIMO_AGENCY_ID || '',
+  });
+});
+
 // ─── Health check (for Coolify) ─────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
