@@ -23,7 +23,7 @@ RUN cd server && npm install --omit=dev
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
+  CMD node -e "const http = require('http'); http.get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
 
 CMD ["node", "server/proxy.js"]

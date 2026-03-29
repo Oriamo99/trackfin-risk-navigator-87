@@ -1,9 +1,17 @@
-import express from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
-import path from 'path';
-import { fileURLToPath } from 'url';
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err);
+  process.exit(1);
+});
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+process.on('unhandledRejection', (err) => {
+  console.error('[FATAL] Unhandled rejection:', err);
+  process.exit(1);
+});
+
+const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -87,16 +95,21 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`TRACKFIN server running on port ${PORT}`);
+try {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`TRACKFIN server running on port ${PORT}`);
 
-  if (!process.env.MISTRAL_API_KEY) {
-    console.warn('[WARN] MISTRAL_API_KEY not set — OCR will not work');
-  }
-  if (!process.env.APIMO_PROVIDER_ID || !process.env.APIMO_TOKEN) {
-    console.warn('[WARN] APIMO credentials not set — CRM integration will not work');
-  }
-  if (!process.env.APIMO_AGENCY_ID) {
-    console.warn('[WARN] APIMO_AGENCY_ID not set — CRM integration will not work');
-  }
-});
+    if (!process.env.MISTRAL_API_KEY) {
+      console.warn('[WARN] MISTRAL_API_KEY not set — OCR will not work');
+    }
+    if (!process.env.APIMO_PROVIDER_ID || !process.env.APIMO_TOKEN) {
+      console.warn('[WARN] APIMO credentials not set — CRM integration will not work');
+    }
+    if (!process.env.APIMO_AGENCY_ID) {
+      console.warn('[WARN] APIMO_AGENCY_ID not set — property selection will not work');
+    }
+  });
+} catch (err) {
+  console.error('[FATAL] Failed to start server:', err);
+  process.exit(1);
+}
