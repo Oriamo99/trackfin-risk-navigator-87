@@ -8,6 +8,20 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/apimo-api': {
+        target: 'https://api.apimo.pro',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/apimo-api/, ''),
+        secure: true,
+      },
+      '/mistral-api': {
+        target: 'https://api.mistral.ai',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/mistral-api/, ''),
+        secure: true,
+      },
+    },
   },
   plugins: [
     react(),

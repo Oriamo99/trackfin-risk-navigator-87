@@ -1,0 +1,163 @@
+// ─── DG Trésor Sanctions Registry Check ─────────────────────────────────────
+// Public API: https://gels-avoirs.dgtresor.gouv.fr/ApiPublic
+// No authentication required. Registry is cached in memory after first fetch.
+
+export interface SanctionEntry {
+  id: string;
+  nature: string;          // 'Personne physique' | 'Entité'
+  lastName?: string;
+  firstName?: string;
+  entityName?: string;
+  birthDate?: string;
+  nationality?: string;
+  registryId: string;
+}
+
+export interface SanctionCheckResult {
+  status: 'clear' | 'hit' | 'error' | 'pending';
+  matches: SanctionEntry[];
+  checkedAt: string;        // ISO timestamp
+  errorMessage?: string;
+}
+
+// ─── Module-level cache ──────────────────────────────────────────────────────
+
+let cachedRegistry: SanctionEntry[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+export function normalizeName(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+// Internal alias
+const normalize = normalizeName;
+
+interface DGTresorRegistreNational {
+  Registre_detail_get_registre_actifResult?: {
+    RegistreNational?: DGTresorEntry[];
+  };
+}
+
+interface DGTresorEntry {
+  IdRegistre?: string;
+  Nature?: string;
+  Nom?: string;
+  Prenom?: string;
+  Denomination?: string;
+  DateNaissance?: string;
+  Nationalite?: string;
+}
+
+function mapEntry(raw: DGTresorEntry): SanctionEntry {
+  return {
+    id: raw.IdRegistre ?? '',
+    nature: raw.Nature ?? '',
+    lastName: raw.Nom ?? undefined,
+    firstName: raw.Prenom ?? undefined,
+    entityName: raw.Denomination ?? undefined,
+    birthDate: raw.DateNaissance ?? undefined,
+    nationality: raw.Nationalite ?? undefined,
+    registryId: raw.IdRegistre ?? '',
+  };
+}
+
+async function loadRegistry(): Promise<SanctionEntry[]> {
+  const now = Date.now();
+  if (cachedRegistry && now - cacheTimestamp < CACHE_TTL) {
+    return cachedRegistry;
+  }
+
+  const url = import.meta.env.PROD
+    ? '/api/dgtresor/ApiPublic/api/v1/Registre_detail/get_registre_actif'
+    : 'https://gels-avoirs.dgtresor.gouv.fr/ApiPublic/api/v1/Registre_detail/get_registre_actif';
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`DG Trésor API error: ${response.status}`);
+  }
+
+  const data: DGTresorRegistreNational = await response.json();
+  const entries = data?.Registre_detail_get_registre_actifResult?.RegistreNational ?? [];
+
+  cachedRegistry = entries.map(mapEntry);
+  cacheTimestamp = now;
+  return cachedRegistry;
+}
+
+export function clearSanctionsCache(): void {
+  cachedRegistry = null;
+  cacheTimestamp = 0;
+}
+
+/** Check if a name matches a sanction entry (used for testing). */
+export function matchesEntry(
+  lastName: string,
+  firstName: string,
+  entry: SanctionEntry,
+  entityName?: string,
+): boolean {
+  const nLast = normalize(lastName);
+  const nFirst = normalize(firstName);
+  const nEntity = entityName ? normalize(entityName) : '';
+
+  if (nLast && entry.lastName) {
+    const entryLast = normalize(entry.lastName);
+    if (entryLast.includes(nLast) || nLast.includes(entryLast)) {
+      if (nFirst && entry.firstName) {
+        const entryFirst = normalize(entry.firstName);
+        return entryFirst.includes(nFirst) || nFirst.includes(entryFirst);
+      }
+      return true;
+    }
+  }
+
+  if (nEntity && entry.entityName) {
+    const entryEntity = normalize(entry.entityName);
+    return entryEntity.includes(nEntity) || nEntity.includes(entryEntity);
+  }
+
+  return false;
+}
+
+// ─── Main check function ─────────────────────────────────────────────────────
+
+export async function checkSanctions(
+  lastName: string,
+  firstName: string,
+  entityName?: string,
+): Promise<SanctionCheckResult> {
+  const checkedAt = new Date().toISOString();
+
+  if (!lastName && !entityName) {
+    return { status: 'clear', matches: [], checkedAt };
+  }
+
+  try {
+    const registry = await loadRegistry();
+
+    const matches = registry.filter((entry) =>
+      matchesEntry(lastName, firstName, entry, entityName)
+    );
+
+    return {
+      status: matches.length > 0 ? 'hit' : 'clear',
+      matches,
+      checkedAt,
+    };
+  } catch (err) {
+    return {
+      status: 'error',
+      matches: [],
+      checkedAt,
+      errorMessage: err instanceof Error ? err.message : 'Erreur inconnue',
+    };
+  }
+}

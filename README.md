@@ -1,73 +1,90 @@
-# Welcome to your Lovable project
+# TRACKFIN Risk Navigator
 
-## Project info
+Outil d'évaluation des risques de blanchiment de capitaux et de financement du terrorisme (LCB-FT) pour les agents immobiliers français.
 
-**URL**: https://lovable.dev/projects/90ea8b24-ddc5-48f6-8f7a-c4d405d07280
+## Fonctionnalités
 
-## How can I edit this code?
+- **Évaluation multi-parties** — Gestion de plusieurs vendeurs et acquéreurs par transaction, avec support des personnes physiques et morales
+- **Intégration CRM Apimo** — Import automatique des biens et contacts depuis l'API Apimo
+- **Analyse OCR** — Extraction automatique des données depuis les pièces d'identité (CNI, passeport, Kbis) via Mistral OCR
+- **Vérifications LCB-FT** — Contrôle automatisé des listes de sanctions (DG Trésor / gel des avoirs), des pays à haut risque (GAFI liste noire et grise), et détection des Personnes Politiquement Exposées (PPE)
+- **Scoring de risque** — Évaluation sur 60 points couvrant les vendeurs (20 pts), les acquéreurs (20 pts) et la provenance des fonds (20 pts)
+- **Export PDF** — Génération d'un rapport conforme prêt à archiver, avec signature manuscrite et mention légale (art. L.561-1 et L.561-12 CMF)
+- **Upload Apimo** — Envoi du rapport directement dans le dossier du bien sur le CRM
 
-There are several ways of editing your application.
+## Stack technique
 
-**Use Lovable**
+- **Frontend** — React 18, TypeScript, Vite
+- **UI** — shadcn/ui, Tailwind CSS, Radix UI
+- **PDF** — jsPDF
+- **OCR** — API Mistral (`mistral-ocr-latest`)
+- **CRM** — API Apimo v2
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/90ea8b24-ddc5-48f6-8f7a-c4d405d07280) and start prompting.
+## Installation
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+git clone <repo-url>
+cd trackfin-risk-navigator
+npm install
 ```
 
-**Edit a file directly in GitHub**
+### Variables d'environnement
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Créer un fichier `.env.local` à la racine :
 
-**Use GitHub Codespaces**
+```env
+VITE_APIMO_API_KEY=<clé API Apimo>
+VITE_APIMO_AGENCY_ID=<ID agence Apimo>
+VITE_MISTRAL_API_KEY=<clé API Mistral>
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+> **Sécurité** : ne jamais commiter les clés API. Le `.gitignore` exclut déjà `.env.local`.
 
-## What technologies are used for this project?
+## Développement
 
-This project is built with:
+```bash
+npm run dev       # Serveur de développement (http://localhost:8080)
+npm run build     # Build de production
+npm run lint      # ESLint
+npm run test      # Tests unitaires (Vitest)
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Architecture
 
-## How can I deploy this project?
+```
+src/
+├── app/routes/           # Pages (Index.tsx = page principale)
+├── components/
+│   ├── assessment/       # Composants d'évaluation (PartyAssessment, FundOriginAssessment, RiskSummary)
+│   ├── documents/        # Zone de dépôt OCR (DocumentDropZone)
+│   ├── forms/            # Formulaires (PersonForm, SignaturePad)
+│   ├── verification/     # Vérifications automatisées (VerificationPanel)
+│   ├── apimo/            # Sélection de bien Apimo (PropertySelector)
+│   └── ui/               # Composants shadcn/ui
+├── config/               # Critères de risque, scoring, listes GAFI, PPE
+├── contexts/             # GlobalDataContext (état partagé)
+├── hooks/                # Hooks personnalisés (useLocalStorage, useGlobalData)
+├── lib/
+│   ├── pdf-export.ts     # Génération du rapport PDF
+│   └── utils.ts          # Utilitaires
+├── services/
+│   ├── apimo.ts          # Client API Apimo
+│   ├── apimo-mapper.ts   # Mapping données Apimo → modèle interne
+│   ├── document-ocr.ts   # Client OCR Mistral
+│   ├── sanctions-check.ts # Client DG Trésor
+│   └── verification-service.ts  # Vérifications DG Trésor, GAFI, PPE
+└── types/                # Types TypeScript (Party, Transaction, etc.)
+```
 
-Simply open [Lovable](https://lovable.dev/projects/90ea8b24-ddc5-48f6-8f7a-c4d405d07280) and click on Share -> Publish.
+## Conformité réglementaire
 
-## Can I connect a custom domain to my Lovable project?
+Cette application aide les agents immobiliers à respecter leurs obligations au titre de :
+- **Articles L.561-1 et suivants du Code monétaire et financier** — obligations de vigilance
+- **Article L.561-12 du CMF** — conservation des documents pendant 5 ans
+- **Articles L.561-15 et suivants du CMF** — déclaration de soupçon à TRACFIN
 
-Yes, you can!
+L'outil ne se substitue pas au jugement professionnel de l'agent. Les vérifications automatisées (sanctions, GAFI, PPE) sont des aides à la décision.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Licence
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Propriétaire — Tous droits réservés.

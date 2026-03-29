@@ -1,119 +1,217 @@
-
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocalStorage } from './useLocalStorage';
+import {
+  defaultGlobalAppData,
+  emptyDocumentInfo,
+  defaultFundRiskChecks,
+  DEFAULT_FUNDS_DOCUMENT_CHECKS,
+  createEmptyParty,
+  emptyPhysicalPerson,
+  emptyLegalEntity,
+  emptyDocumentChecks,
+  defaultRiskChecks,
+} from '@/types';
+import type {
+  GlobalAppData,
+  SummaryData,
+  TransactionInfo,
+  AppSnapshot,
+  FundData,
+  FundsDocumentChecks,
+  DocumentInfo,
+  Party,
+  PartyData,
+  DocumentChecks,
+} from '@/types';
 
-export interface VendorData {
-  vendorInfo: any;
-  riskAssessment: any;
-  officialVerification: any;
-  uploadedFiles: any[];
+// ─── localStorage keys still used ───────────────────────────────────────
+
+const STORAGE_KEYS = [
+  'trackfinGlobalData',
+  'fundOriginChecks',
+  'fundData',
+  'fundsDocumentChecks',
+  'riskSummaryDocumentInfo',
+] as const;
+
+// Old keys from pre-multi-party era (used only in migration)
+const OLD_PARTY_KEYS = [
+  'vendorData', 'vendorPersonType', 'vendorChecks', 'vendorDocumentChecks',
+  'acquirerData', 'acquirerPersonType', 'acquirerChecks', 'acquirerDocumentChecks',
+] as const;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+function readKey<T>(key: string, fallback: T): T {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-export interface AcquirerData {
-  acquirerInfo: any;
-  riskAssessment: any;
-  officialVerification: any;
-  uploadedFiles: any[];
-}
+// ─── Migration from old single-party format ──────────────────────────────
 
-export interface FundOriginData {
-  fundOriginInfo: any;
-  riskAssessment: any;
-  uploadedFiles: any[];
-}
+function migrateOldData(): GlobalAppData | null {
+  const hasOldKeys = OLD_PARTY_KEYS.some(k => window.localStorage.getItem(k) !== null);
+  if (!hasOldKeys) return null;
 
-export interface GlobalAppData {
-  vendor: VendorData;
-  acquirer: AcquirerData;
-  fundOrigin: FundOriginData;
-  summary: {
-    assessments: any;
-    totalScore: number;
-    overallRisk: string;
-    documentInfo: any;
+  // Read existing global data as base
+  const existing = readKey<GlobalAppData>('trackfinGlobalData', defaultGlobalAppData);
+
+  // Already migrated? (has parties with data)
+  if (existing.vendor?.parties?.length > 0 && existing.vendor.parties[0].physicalPerson.lastName !== '') {
+    // Clean up old keys just in case
+    OLD_PARTY_KEYS.forEach(k => window.localStorage.removeItem(k));
+    return null;
+  }
+
+  // Migrate vendor
+  const vendorData = readKey<PartyData>('vendorData', { physicalPerson: { ...emptyPhysicalPerson }, legalEntity: { ...emptyLegalEntity } });
+  const vendorPersonType = readKey<'physical' | 'legal'>('vendorPersonType', 'physical');
+  const vendorChecks = readKey<Record<string, boolean>>('vendorChecks', { ...defaultRiskChecks });
+  const vendorDocChecks = readKey<DocumentChecks>('vendorDocumentChecks', { ...emptyDocumentChecks });
+
+  const vendorParty: Party = {
+    id: crypto.randomUUID(),
+    personType: vendorPersonType,
+    physicalPerson: vendorData.physicalPerson,
+    legalEntity: vendorData.legalEntity,
+    documentChecks: vendorDocChecks,
+    riskChecks: vendorChecks,
   };
-  transactionInfo: {
-    transactionType: string;
-    propertyType: string;
+
+  // Migrate acquirer
+  const acquirerData = readKey<PartyData>('acquirerData', { physicalPerson: { ...emptyPhysicalPerson }, legalEntity: { ...emptyLegalEntity } });
+  const acquirerPersonType = readKey<'physical' | 'legal'>('acquirerPersonType', 'physical');
+  const acquirerChecks = readKey<Record<string, boolean>>('acquirerChecks', { ...defaultRiskChecks });
+  const acquirerDocChecks = readKey<DocumentChecks>('acquirerDocumentChecks', { ...emptyDocumentChecks });
+
+  const acquirerParty: Party = {
+    id: crypto.randomUUID(),
+    personType: acquirerPersonType,
+    physicalPerson: acquirerData.physicalPerson,
+    legalEntity: acquirerData.legalEntity,
+    documentChecks: acquirerDocChecks,
+    riskChecks: acquirerChecks,
   };
+
+  const migrated: GlobalAppData = {
+    ...existing,
+    vendor: { parties: [vendorParty] },
+    acquirer: { parties: [acquirerParty] },
+  };
+
+  // Remove old keys
+  OLD_PARTY_KEYS.forEach(k => window.localStorage.removeItem(k));
+
+  return migrated;
 }
+
+// ─── Hook ────────────────────────────────────────────────────────────────
 
 export const useGlobalData = () => {
-  const [globalData, setGlobalData] = useLocalStorage<GlobalAppData>('tracfinGlobalData', {
-    vendor: {
-      vendorInfo: {},
-      riskAssessment: {},
-      officialVerification: {},
-      uploadedFiles: []
-    },
-    acquirer: {
-      acquirerInfo: {},
-      riskAssessment: {},
-      officialVerification: {},
-      uploadedFiles: []
-    },
-    fundOrigin: {
-      fundOriginInfo: {},
-      riskAssessment: {},
-      uploadedFiles: []
-    },
-    summary: {
-      assessments: {
-        vendor: { score: 0, level: 'Faible' },
-        acquirer: { score: 0, level: 'Faible' },
-        fundOrigin: { score: 0, level: 'Faible' }
-      },
-      totalScore: 0,
-      overallRisk: 'Faible',
-      documentInfo: {}
-    },
-    transactionInfo: {
-      transactionType: '',
-      propertyType: ''
+  const [globalData, setGlobalData] = useLocalStorage<GlobalAppData>(
+    'trackfinGlobalData',
+    defaultGlobalAppData
+  );
+
+  // Run migration once on mount
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (migrated.current) return;
+    migrated.current = true;
+    const result = migrateOldData();
+    if (result) {
+      setGlobalData(result);
     }
-  });
+  }, [setGlobalData]);
 
-  const updateVendorData = (data: Partial<VendorData>) => {
+  const updateSummaryData = useCallback((data: Partial<SummaryData>) => {
     setGlobalData(prev => ({
       ...prev,
-      vendor: { ...prev.vendor, ...data }
+      summary: { ...prev.summary, ...data },
     }));
-  };
+  }, [setGlobalData]);
 
-  const updateAcquirerData = (data: Partial<AcquirerData>) => {
+  const updateTransactionInfo = useCallback((data: Partial<TransactionInfo>) => {
     setGlobalData(prev => ({
       ...prev,
-      acquirer: { ...prev.acquirer, ...data }
+      transactionInfo: { ...prev.transactionInfo, ...data },
     }));
-  };
+  }, [setGlobalData]);
 
-  const updateFundOriginData = (data: Partial<FundOriginData>) => {
+  // ─── Party management ────────────────────────────────────────────────
+
+  const addParty = useCallback((side: 'vendor' | 'acquirer') => {
     setGlobalData(prev => ({
       ...prev,
-      fundOrigin: { ...prev.fundOrigin, ...data }
+      [side]: {
+        parties: [...prev[side].parties, createEmptyParty()],
+      },
     }));
-  };
+  }, [setGlobalData]);
 
-  const updateSummaryData = (data: any) => {
+  const removeParty = useCallback((side: 'vendor' | 'acquirer', partyId: string) => {
+    setGlobalData(prev => {
+      if (prev[side].parties.length <= 1) return prev; // Never remove the last one
+      return {
+        ...prev,
+        [side]: {
+          parties: prev[side].parties.filter(p => p.id !== partyId),
+        },
+      };
+    });
+  }, [setGlobalData]);
+
+  const updateParty = useCallback((side: 'vendor' | 'acquirer', partyId: string, data: Partial<Party>) => {
     setGlobalData(prev => ({
       ...prev,
-      summary: { ...prev.summary, ...data }
+      [side]: {
+        parties: prev[side].parties.map(p =>
+          p.id === partyId ? { ...p, ...data } : p
+        ),
+      },
     }));
-  };
+  }, [setGlobalData]);
 
-  const updateTransactionInfo = (data: any) => {
-    setGlobalData(prev => ({
-      ...prev,
-      transactionInfo: { ...prev.transactionInfo, ...data }
-    }));
-  };
+  // ─── Reset & export ──────────────────────────────────────────────────
+
+  const resetAllData = useCallback(() => {
+    STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+    OLD_PARTY_KEYS.forEach(key => window.localStorage.removeItem(key));
+    setGlobalData(defaultGlobalAppData);
+  }, [setGlobalData]);
+
+  const exportAllData = useCallback((): AppSnapshot => ({
+    global: readKey<GlobalAppData>('trackfinGlobalData', defaultGlobalAppData),
+    fund: {
+      data: readKey<FundData>('fundData', {
+        originDescription: '',
+        bankDetails: '',
+        transactionAmount: '',
+        paymentMethod: '',
+        justificationDocuments: '',
+        additionalNotes: '',
+        bankLoan: '',
+        lenderBank: '',
+      }),
+      checks: readKey<Record<string, boolean>>('fundOriginChecks', { ...defaultFundRiskChecks }),
+      documentChecks: readKey<FundsDocumentChecks>('fundsDocumentChecks', { ...DEFAULT_FUNDS_DOCUMENT_CHECKS }),
+    },
+    documentInfo: readKey<DocumentInfo>('riskSummaryDocumentInfo', { ...emptyDocumentInfo }),
+  }), []);
 
   return {
     globalData,
-    updateVendorData,
-    updateAcquirerData,
-    updateFundOriginData,
     updateSummaryData,
     updateTransactionInfo,
-    setGlobalData
+    addParty,
+    removeParty,
+    updateParty,
+    resetAllData,
+    exportAllData,
+    setGlobalData,
   };
 };

@@ -1,0 +1,7 @@
+{
+  "name": "trackfin-server",
+  "dependencies": {
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.0"
+  }
+}
