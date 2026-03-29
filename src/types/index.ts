@@ -27,7 +27,6 @@ export interface PhysicalPerson {
   phone: string;
   email: string;
   idDocument: string;
-  idDocumentOther: string;
   idNumber: string;
   profession: string;
   income: string;
@@ -179,7 +178,6 @@ export const emptyPhysicalPerson: PhysicalPerson = {
   phone: '',
   email: '',
   idDocument: '',
-  idDocumentOther: '',
   idNumber: '',
   profession: '',
   income: '',

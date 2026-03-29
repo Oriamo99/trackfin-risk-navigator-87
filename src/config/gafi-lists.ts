@@ -1,10 +1,10 @@
 // ─── GAFI Black & Grey Lists ─────────────────────────────────────────────────
 // Static config, updated ~3x/year following GAFI plenary sessions.
-// Last update: February 2025 (GAFI plenary).
+// Last update: February 2026 (GAFI plenary).
 // Source: https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html
 
 /** Date of last GAFI list update (set manually after each plenary) */
-export const GAFI_LAST_UPDATE = '2025-02-01';
+export const GAFI_LAST_UPDATE = '2026-02-13';
 
 /** Returns true if GAFI lists are potentially outdated (>6 months old) */
 export function isGafiListOutdated(): boolean {
@@ -23,77 +23,70 @@ export interface GafiCheckResult {
   checkedAt: string;
 }
 
-// ─── Black list (High-Risk Jurisdictions Subject to a Call for Action) ───────
-// These countries have significant strategic deficiencies in their AML/CFT regimes.
+export interface GafiCountry {
+  nameFr: string;
+  nameEn: string;
+  aliases: string[];
+  iso2: string;
+}
 
-const BLACK_LIST = new Set([
-  'corée du nord',
-  'iran',
-  'myanmar',
-]);
+// ─── Black list (High-Risk Jurisdictions Subject to a Call for Action) ───────
+// 3 countries — unchanged since October 2024.
+
+export const GAFI_BLACK_LIST: GafiCountry[] = [
+  {
+    nameFr: 'Corée du Nord',
+    nameEn: 'North Korea',
+    aliases: ['DPRK', 'Democratic People\'s Republic of Korea', 'RPDC', 'République populaire démocratique de Corée'],
+    iso2: 'KP',
+  },
+  {
+    nameFr: 'Iran',
+    nameEn: 'Iran',
+    aliases: ['République islamique d\'Iran', 'Islamic Republic of Iran'],
+    iso2: 'IR',
+  },
+  {
+    nameFr: 'Myanmar',
+    nameEn: 'Myanmar',
+    aliases: ['Burma', 'Birmanie'],
+    iso2: 'MM',
+  },
+];
 
 // ─── Grey list (Jurisdictions Under Increased Monitoring) ────────────────────
+// 22 countries — February 2026 plenary.
+// Changes from Feb 2025:
+//   Added: Bolivia, British Virgin Islands (June 2025), Kuwait, Papua New Guinea (Feb 2026)
+//   Removed: Croatia, Mali, Tanzania (June 2025), Philippines (Feb 2025),
+//            Burkina Faso, Mozambique, Nigeria, South Africa (Oct 2025)
 
-const GREY_LIST = new Set([
-  'algérie',
-  'angola',
-  'bulgarie',
-  'burkina faso',
-  'cameroun',
-  'côte d\'ivoire',
-  'croatie',
-  'haïti',
-  'kenya',
-  'liban',
-  'mali',
-  'monaco',
-  'mozambique',
-  'namibie',
-  'nigéria',
-  'philippines',
-  'république démocratique du congo',
-  'sénégal',
-  'soudan du sud',
-  'syrie',
-  'tanzanie',
-  'venezuela',
-  'vietnam',
-  'yémen',
-]);
+export const GAFI_GREY_LIST: GafiCountry[] = [
+  { nameFr: 'Algérie', nameEn: 'Algeria', aliases: [], iso2: 'DZ' },
+  { nameFr: 'Angola', nameEn: 'Angola', aliases: [], iso2: 'AO' },
+  { nameFr: 'Bolivie', nameEn: 'Bolivia', aliases: ['État plurinational de Bolivie', 'Plurinational State of Bolivia'], iso2: 'BO' },
+  { nameFr: 'Bulgarie', nameEn: 'Bulgaria', aliases: [], iso2: 'BG' },
+  { nameFr: 'Cameroun', nameEn: 'Cameroon', aliases: [], iso2: 'CM' },
+  { nameFr: 'Côte d\'Ivoire', nameEn: 'Côte d\'Ivoire', aliases: ['Ivory Coast'], iso2: 'CI' },
+  { nameFr: 'République démocratique du Congo', nameEn: 'Democratic Republic of the Congo', aliases: ['RDC', 'DRC', 'Congo-Kinshasa', 'DR Congo'], iso2: 'CD' },
+  { nameFr: 'Haïti', nameEn: 'Haiti', aliases: [], iso2: 'HT' },
+  { nameFr: 'Kenya', nameEn: 'Kenya', aliases: [], iso2: 'KE' },
+  { nameFr: 'Koweït', nameEn: 'Kuwait', aliases: [], iso2: 'KW' },
+  { nameFr: 'Laos', nameEn: 'Lao PDR', aliases: ['Lao People\'s Democratic Republic', 'LPDR', 'République démocratique populaire lao'], iso2: 'LA' },
+  { nameFr: 'Liban', nameEn: 'Lebanon', aliases: [], iso2: 'LB' },
+  { nameFr: 'Monaco', nameEn: 'Monaco', aliases: [], iso2: 'MC' },
+  { nameFr: 'Namibie', nameEn: 'Namibia', aliases: [], iso2: 'NA' },
+  { nameFr: 'Népal', nameEn: 'Nepal', aliases: [], iso2: 'NP' },
+  { nameFr: 'Papouasie-Nouvelle-Guinée', nameEn: 'Papua New Guinea', aliases: ['PNG'], iso2: 'PG' },
+  { nameFr: 'Soudan du Sud', nameEn: 'South Sudan', aliases: [], iso2: 'SS' },
+  { nameFr: 'Syrie', nameEn: 'Syria', aliases: ['Syrian Arab Republic', 'République arabe syrienne'], iso2: 'SY' },
+  { nameFr: 'Venezuela', nameEn: 'Venezuela', aliases: ['République bolivarienne du Venezuela', 'Bolivarian Republic of Venezuela'], iso2: 'VE' },
+  { nameFr: 'Vietnam', nameEn: 'Vietnam', aliases: ['Viet Nam', 'Viêt Nam'], iso2: 'VN' },
+  { nameFr: 'Îles Vierges britanniques', nameEn: 'Virgin Islands (UK)', aliases: ['British Virgin Islands', 'BVI', 'IVB'], iso2: 'VG' },
+  { nameFr: 'Yémen', nameEn: 'Yemen', aliases: [], iso2: 'YE' },
+];
 
-// ─── English → French country name mapping (for Apimo data) ─────────────────
-
-const COUNTRY_ALIASES: Record<string, string> = {
-  'north korea': 'corée du nord',
-  'south korea': 'corée du sud',
-  'iran': 'iran',
-  'myanmar': 'myanmar',
-  'burma': 'myanmar',
-  'algeria': 'algérie',
-  'angola': 'angola',
-  'bulgaria': 'bulgarie',
-  'burkina faso': 'burkina faso',
-  'cameroon': 'cameroun',
-  'ivory coast': 'côte d\'ivoire',
-  'croatia': 'croatie',
-  'haiti': 'haïti',
-  'kenya': 'kenya',
-  'lebanon': 'liban',
-  'mali': 'mali',
-  'monaco': 'monaco',
-  'mozambique': 'mozambique',
-  'namibia': 'namibie',
-  'nigeria': 'nigéria',
-  'philippines': 'philippines',
-  'democratic republic of the congo': 'république démocratique du congo',
-  'senegal': 'sénégal',
-  'south sudan': 'soudan du sud',
-  'syria': 'syrie',
-  'tanzania': 'tanzanie',
-  'venezuela': 'venezuela',
-  'vietnam': 'vietnam',
-  'yemen': 'yémen',
-};
+// ─── Lookup helpers ──────────────────────────────────────────────────────────
 
 function normalize(s: string): string {
   return s
@@ -103,15 +96,22 @@ function normalize(s: string): string {
     .trim();
 }
 
-function toFrench(country: string): string {
-  const n = normalize(country);
-  // Check alias table first (handles English names)
-  for (const [en, fr] of Object.entries(COUNTRY_ALIASES)) {
-    if (normalize(en) === n) return fr;
+/** Build a lookup Set from all names/aliases in a country list (normalized). */
+function buildLookup(list: GafiCountry[]): Set<string> {
+  const set = new Set<string>();
+  for (const c of list) {
+    set.add(normalize(c.nameFr));
+    set.add(normalize(c.nameEn));
+    set.add(c.iso2.toLowerCase());
+    for (const alias of c.aliases) {
+      set.add(normalize(alias));
+    }
   }
-  // Return normalized input (assume already French)
-  return n;
+  return set;
 }
+
+const BLACK_LOOKUP = buildLookup(GAFI_BLACK_LIST);
+const GREY_LOOKUP = buildLookup(GAFI_GREY_LIST);
 
 export function checkGafiCountry(country: string): GafiCheckResult {
   const checkedAt = new Date().toISOString();
@@ -120,17 +120,17 @@ export function checkGafiCountry(country: string): GafiCheckResult {
     return { listType: 'none', country: '', checkedAt };
   }
 
-  const fr = toFrench(country);
+  const n = normalize(country);
 
-  if (BLACK_LIST.has(fr)) {
-    return { listType: 'black', country: fr, checkedAt };
+  if (BLACK_LOOKUP.has(n)) {
+    return { listType: 'black', country: n, checkedAt };
   }
 
-  if (GREY_LIST.has(fr)) {
-    return { listType: 'grey', country: fr, checkedAt };
+  if (GREY_LOOKUP.has(n)) {
+    return { listType: 'grey', country: n, checkedAt };
   }
 
-  return { listType: 'none', country: fr, checkedAt };
+  return { listType: 'none', country: n, checkedAt };
 }
 
 /** Check multiple countries at once, return the worst result. */

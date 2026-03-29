@@ -135,6 +135,24 @@ const IndexContent = () => {
     return () => window.removeEventListener('beforeunload', handler);
   }, [globalData, appMode]);
 
+  // ─── RGPD: clear biometric signature from localStorage on page close ──
+  useEffect(() => {
+    const cleanup = () => {
+      try {
+        const stored = localStorage.getItem('riskSummaryDocumentInfo');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.signature) {
+            parsed.signature = null;
+            localStorage.setItem('riskSummaryDocumentInfo', JSON.stringify(parsed));
+          }
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('unload', cleanup);
+    return () => window.removeEventListener('unload', cleanup);
+  }, []);
+
   useEffect(() => {
     updateTransactionInfo({ transactionType, propertyType });
   }, [transactionType, propertyType, updateTransactionInfo]);

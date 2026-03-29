@@ -26,13 +26,16 @@ let cachedRegistry: SanctionEntry[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-function normalize(s: string): string {
+export function normalizeName(s: string): string {
   return s
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 }
+
+// Internal alias
+const normalize = normalizeName;
 
 interface DGTresorRegistreNational {
   Registre_detail_get_registre_actifResult?: {
@@ -91,6 +94,36 @@ export function clearSanctionsCache(): void {
   cacheTimestamp = 0;
 }
 
+/** Check if a name matches a sanction entry (used for testing). */
+export function matchesEntry(
+  lastName: string,
+  firstName: string,
+  entry: SanctionEntry,
+  entityName?: string,
+): boolean {
+  const nLast = normalize(lastName);
+  const nFirst = normalize(firstName);
+  const nEntity = entityName ? normalize(entityName) : '';
+
+  if (nLast && entry.lastName) {
+    const entryLast = normalize(entry.lastName);
+    if (entryLast.includes(nLast) || nLast.includes(entryLast)) {
+      if (nFirst && entry.firstName) {
+        const entryFirst = normalize(entry.firstName);
+        return entryFirst.includes(nFirst) || nFirst.includes(entryFirst);
+      }
+      return true;
+    }
+  }
+
+  if (nEntity && entry.entityName) {
+    const entryEntity = normalize(entry.entityName);
+    return entryEntity.includes(nEntity) || nEntity.includes(entryEntity);
+  }
+
+  return false;
+}
+
 // ─── Main check function ─────────────────────────────────────────────────────
 
 export async function checkSanctions(
@@ -107,32 +140,9 @@ export async function checkSanctions(
   try {
     const registry = await loadRegistry();
 
-    const nLast = normalize(lastName);
-    const nFirst = normalize(firstName);
-    const nEntity = entityName ? normalize(entityName) : '';
-
-    const matches = registry.filter((entry) => {
-      // Physical person match
-      if (nLast && entry.lastName) {
-        const entryLast = normalize(entry.lastName);
-        if (entryLast.includes(nLast) || nLast.includes(entryLast)) {
-          // If first name provided, require partial match too
-          if (nFirst && entry.firstName) {
-            const entryFirst = normalize(entry.firstName);
-            return entryFirst.includes(nFirst) || nFirst.includes(entryFirst);
-          }
-          return true;
-        }
-      }
-
-      // Entity match
-      if (nEntity && entry.entityName) {
-        const entryEntity = normalize(entry.entityName);
-        return entryEntity.includes(nEntity) || nEntity.includes(entryEntity);
-      }
-
-      return false;
-    });
+    const matches = registry.filter((entry) =>
+      matchesEntry(lastName, firstName, entry, entityName)
+    );
 
     return {
       status: matches.length > 0 ? 'hit' : 'clear',

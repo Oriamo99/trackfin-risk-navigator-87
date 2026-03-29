@@ -188,6 +188,10 @@ const RiskSummary = ({ assessments, totalScore, overallRisk, apimoPropertyId, on
 
     setPdfSnapshot(snapshot);
     setPreviewOpen(true);
+
+    // RGPD: clear biometric signature from localStorage after PDF integration.
+    // The signature is preserved in the snapshot/PDF but not persisted on disk.
+    setDocumentInfo(prev => ({ ...prev, signature: null }));
   };
 
   return (

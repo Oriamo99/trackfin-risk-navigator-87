@@ -275,6 +275,19 @@ function buildPage1Header(pdf: jsPDF, snapshot: AppSnapshot) {
     y
   );
 
+  // Worst-case scoring note
+  y += 2;
+  pdf.setFontSize(7);
+  pdf.setTextColor(130, 130, 130);
+  pdf.text(
+    'Le score de chaque section correspond au score le plus élevé parmi les parties (approche worst-case).',
+    MARGIN,
+    y
+  );
+  pdf.setTextColor(0, 0, 0);
+  pdf.setFontSize(9);
+  y += 5;
+
   // Recommendation
   y += 4;
   y = addSectionHeader(pdf, 'RECOMMANDATION', y);

@@ -75,14 +75,17 @@ src/
 │   ├── risk-questions.ts           # Risk criteria definitions
 │   ├── risk-scoring.ts             # Scoring logic + thresholds
 │   ├── risk-scoring.test.ts        # Vitest tests for scoring
-│   └── validation-schemas.ts       # Zod schemas for all forms
+│   ├── validation-schemas.ts       # Zod schemas for all forms
+│   └── validation-schemas.test.ts  # Vitest tests for validation schemas
 ├── services/
 │   ├── apimo.ts                    # Apimo REST API client (via Vite proxy in dev)
 │   ├── apimo-mapper.ts            # Apimo → TRACKFIN data mapping
 │   ├── apimo-mapper.test.ts       # Vitest tests for Apimo mapping
 │   ├── document-ocr.ts            # Mistral OCR client + field mappers
 │   ├── sanctions-check.ts         # DG Trésor API client + name matching
-│   └── verification-service.ts    # Orchestrator: sanctions + GAFI + PPE
+│   ├── sanctions-check.test.ts    # Vitest tests for sanctions name matching
+│   ├── verification-service.ts    # Orchestrator: sanctions + GAFI + PPE
+│   └── verification-service.test.ts # Vitest tests for OCR auto-flags
 ├── hooks/
 │   ├── useGlobalData.ts            # Typed global state
 │   └── useVerification.ts         # Manual verification (button-triggered)
@@ -91,7 +94,9 @@ src/
 │   └── apimo.ts                    # Apimo API response types
 ├── lib/
 │   ├── utils.ts                    # cn() utility
-│   └── pdf-export.ts              # Structured PDF generation with jsPDF
+│   ├── api-guard.ts               # API key exposure warning for production
+│   ├── pdf-export.ts              # Structured PDF generation with jsPDF
+│   └── pdf-export.test.ts         # Vitest smoke test for PDF generation
 └── index.css
 ```
 
@@ -125,7 +130,7 @@ Three mandatory LCB-FT checks per party:
 
 1. **DG Trésor sanctions** — Public API at `https://gels-avoirs.dgtresor.gouv.fr/ApiPublic/api/v1/Registre_detail/get_registre_actif`. No auth required. Full registry downloaded once and cached in memory (module-level variable, NOT localStorage). Matching by normalized name (case-insensitive, accent-insensitive). CORS fallback: manual link + screenshot upload.
 
-2. **GAFI lists** — Static config in `gafi-lists.ts`. Black list (Iran, North Korea, Myanmar) and grey list (~22 countries). Updated manually 3× per year. Includes country aliases (e.g., "Birmanie" → "Myanmar"). Show warning if lists are >6 months old.
+2. **GAFI lists** — Static config in `gafi-lists.ts`. Black list (3 countries: Iran, North Korea, Myanmar) and grey list (22 countries). Updated manually 3× per year. Uses `GafiCountry` objects with `nameFr`, `nameEn`, `aliases`, `iso2`. Matching via normalized lookup Sets. Show warning if lists are >6 months old.
 
 3. **PPE declaration** — Declarative only (no public database). Categories from art. R.561-18 CMF. Includes family members and associates.
 
@@ -199,6 +204,22 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 - Subjective questions (unreliableInfo, actingForThird, atypicalOperation, knownInfractions, noClientInfo) are NEVER auto-filled — they require human judgment
 - Fast validation mode available when all verifications are clear and global score ≤ 5
 - Tabs are controlled (`value`/`onValueChange`) to allow navigation from Summary → vendor/acquirer via PartyRiskOverview "Modifier" links
+
+## Security
+
+- CSP defined in `index.html` (`default-src 'self'`, `connect-src` for Mistral, Apimo, DG Trésor)
+- `api-guard.ts`: console.error warning if API keys are exposed in production builds without proxy URLs
+- Signature biométrique supprimée du localStorage after PDF generation (RGPD) and on page `unload`
+- In production: use `VITE_MISTRAL_PROXY_URL` and `VITE_APIMO_PROXY_URL` to route API calls through a backend proxy
+
+## GAFI Data
+
+- Source: GAFI plenary of 13 February 2026
+- Black list: 3 countries (North Korea, Iran, Myanmar)
+- Grey list: 22 countries
+- Next update expected: June 2026 plenary
+- Automatic warning if lists are >6 months old (`isGafiListOutdated`)
+- Data structure: `GafiCountry[]` with `nameFr`, `nameEn`, `aliases`, `iso2`
 
 ## Code Conventions
 
