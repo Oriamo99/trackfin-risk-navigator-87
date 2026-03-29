@@ -9,6 +9,7 @@ import {
 import type { VerificationResult } from '@/services/verification-service';
 import type { PpeDeclaration } from '@/config/ppe';
 import { PPE_CATEGORIES } from '@/config/ppe';
+import { isGafiListOutdated } from '@/config/gafi-lists';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +169,11 @@ export const VerificationPanel = ({
                   {result.gafi.listType === 'black' ? 'noire' : 'grise'}
                 </span>
                 {' '}du GAFI.
+              </p>
+            )}
+            {isGafiListOutdated() && (
+              <p className="mt-1.5 text-xs px-2 py-1 rounded bg-amber-50 border border-amber-200 text-amber-700">
+                Les listes GAFI datent de plus de 6 mois. Veuillez vérifier manuellement sur le site du GAFI.
               </p>
             )}
           </CheckSection>

@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => ({
         rewrite: (p) => p.replace(/^\/apimo-api/, ''),
         secure: true,
       },
+      '/mistral-api': {
+        target: 'https://api.mistral.ai',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/mistral-api/, ''),
+        secure: true,
+      },
     },
   },
   plugins: [

@@ -10,10 +10,10 @@ import {
 import { Users, Building, Save, Plus, Trash2, AlertTriangle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { PersonForm } from "@/components/forms/PersonForm";
-import { DocumentUpload } from "@/components/forms/DocumentUpload";
 import { OfficialVerificationLinks } from "@/components/verification/OfficialVerificationLinks";
 import { VerificationPanel } from "@/components/verification/VerificationPanel";
 import { RiskAssessmentTable } from "@/components/assessment/RiskAssessmentTable";
+import { DocumentDropZone } from "@/components/documents/DocumentDropZone";
 import { partyQuestions } from "@/config/risk-questions";
 import { calculateScore, getRiskLevel } from "@/config/risk-scoring";
 import { useGlobalData } from "@/hooks/useGlobalData";
@@ -34,7 +34,7 @@ const sideConfig = {
     saveMessage: 'Données des vendeurs sauvegardées avec succès !',
     saveLabel: 'Sauvegarder les données vendeurs',
     singularLabel: 'Vendeur',
-    addLabel: '+ Ajouter un vendeur',
+    addLabel: 'Ajouter un vendeur',
     showAcquirerFields: false,
   },
   acquirer: {
@@ -90,7 +90,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
   const [selectedPartyId, setSelectedPartyId] = useState(parties[0]?.id ?? '');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
-  const [documentFiles, setDocumentFiles] = useState<Record<string, Record<string, File[]>>>({});
 
   // Keep selectedPartyId valid
   useEffect(() => {
@@ -151,14 +150,19 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
     });
   }, [verificationResult, selectedParty, partyType, selectedPartyId, updateParty]);
 
+  // ─── OCR merge callback ─────────────────────────────────────────────
+
+  const handleFieldsExtracted = useCallback((fields: Partial<Party>) => {
+    if (!selectedParty) return;
+    updateParty(partyType, selectedPartyId, fields);
+  }, [selectedParty, partyType, selectedPartyId, updateParty]);
+
   if (!selectedParty) return null;
 
   // ─── Handlers ────────────────────────────────────────────────────────
 
   const handleAddParty = () => {
     addParty(partyType);
-    // Select the newly added party (it'll be the last one after state updates)
-    // We set a flag and pick it up in useEffect
     setTimeout(() => {
       const stored = window.localStorage.getItem('tracfinGlobalData');
       if (stored) {
@@ -176,7 +180,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
     removeParty(partyType, partyToDelete);
     setDeleteDialogOpen(false);
     setPartyToDelete(null);
-    // Will auto-select first via useEffect
   };
 
   const handleInputChange = (section: 'physicalPerson' | 'legalEntity', field: string, value: string) => {
@@ -195,44 +198,11 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
     });
   };
 
-  const handleDocumentCheck = (docType: string, checked: boolean) => {
-    updateParty(partyType, selectedPartyId, {
-      documentChecks: { ...selectedParty.documentChecks, [docType]: checked },
-    });
-  };
-
-  const getDocFiles = () => documentFiles[selectedPartyId] ?? {
-    justificatifDomicile: [],
-    titrePropriete: [],
-    pieceIdentite: [],
-  };
-
-  const handleDocumentUpload = (docType: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setDocumentFiles(prev => ({
-      ...prev,
-      [selectedPartyId]: {
-        ...getDocFiles(),
-        [docType]: [...(prev[selectedPartyId]?.[docType] ?? []), ...files],
-      },
-    }));
-  };
-
-  const removeDocumentFile = (docType: string, index: number) => {
-    setDocumentFiles(prev => ({
-      ...prev,
-      [selectedPartyId]: {
-        ...getDocFiles(),
-        [docType]: (prev[selectedPartyId]?.[docType] ?? []).filter((_, i) => i !== index),
-      },
-    }));
-  };
 
   const handleSave = () => {
     toast.success(cfg.saveMessage);
   };
 
-  // Build PartyData shape expected by PersonForm
   const partyDataForForm = {
     physicalPerson: selectedParty.physicalPerson,
     legalEntity: selectedParty.legalEntity,
@@ -252,7 +222,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Party cards row */}
               <div className="flex flex-wrap gap-3">
                 {parties.map((party, idx) => {
                   const scoring = partyScorings.find(s => s.partyId === party.id);
@@ -300,7 +269,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
                   );
                 })}
 
-                {/* Add button */}
                 <button
                   onClick={handleAddParty}
                   className="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 min-w-[140px] text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
@@ -310,7 +278,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
                 </button>
               </div>
 
-              {/* Section score summary */}
               <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
                 <span className="font-medium">Score section :</span>
                 <span className="font-bold">{maxScore}/20</span>
@@ -333,6 +300,10 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              <DocumentDropZone
+                party={selectedParty}
+                onFieldsExtracted={handleFieldsExtracted}
+              />
               <PersonForm
                 data={partyDataForForm}
                 personType={selectedParty.personType}
@@ -340,14 +311,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
                 onInputChange={handleInputChange}
                 idPrefix={`${partyType}-${selectedPartyId.slice(0, 8)}`}
                 showAcquirerFields={cfg.showAcquirerFields}
-              />
-              <DocumentUpload
-                documentChecks={selectedParty.documentChecks}
-                onDocumentCheck={handleDocumentCheck}
-                documentFiles={getDocFiles()}
-                onDocumentUpload={handleDocumentUpload}
-                onRemoveFile={removeDocumentFile}
-                idPrefix={`${partyType}-${selectedPartyId.slice(0, 8)}`}
               />
             </div>
           </CardContent>

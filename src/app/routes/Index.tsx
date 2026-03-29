@@ -51,8 +51,8 @@ function useTabCompleteness() {
     const check = () => {
       const global = readLS<GlobalAppData>('tracfinGlobalData', defaultGlobalAppData);
 
-      const vendorOk = global.vendor.parties.some(isPartyComplete);
-      const acquirerOk = global.acquirer.parties.some(isPartyComplete);
+      const vendorOk = global.vendor?.parties?.some(isPartyComplete) ?? false;
+      const acquirerOk = global.acquirer?.parties?.some(isPartyComplete) ?? false;
 
       const fundData = readLS<FundData>('fundData', { originDescription: '', bankDetails: '', transactionAmount: '', paymentMethod: '', justificationDocuments: '', additionalNotes: '', bankLoan: '', lenderBank: '' });
       const fundsOk = !!(fundData.transactionAmount && fundData.paymentMethod && fundData.originDescription);

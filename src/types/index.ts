@@ -59,6 +59,20 @@ export interface DocumentChecks {
   justificatifDomicile: boolean;
   titrePropriete: boolean;
   pieceIdentite: boolean;
+  kbis: boolean;
+}
+
+// Justificatifs de provenance des fonds (déclaratif, pas d'OCR)
+export interface FundsDocumentChecks {
+  pretBancaire: boolean;
+  acteVente: boolean;
+  epargnePersonnelle: boolean;
+  donation: boolean;
+  succession: boolean;
+  fondsEtranger: boolean;
+  apportSociete: boolean;
+  autre: boolean;
+  autreDetail: string;
 }
 
 export interface FundData {
@@ -188,6 +202,19 @@ export const emptyDocumentChecks: DocumentChecks = {
   justificatifDomicile: false,
   titrePropriete: false,
   pieceIdentite: false,
+  kbis: false,
+};
+
+export const DEFAULT_FUNDS_DOCUMENT_CHECKS: FundsDocumentChecks = {
+  pretBancaire: false,
+  acteVente: false,
+  epargnePersonnelle: false,
+  donation: false,
+  succession: false,
+  fondsEtranger: false,
+  apportSociete: false,
+  autre: false,
+  autreDetail: '',
 };
 
 export const emptyDocumentInfo: DocumentInfo = {

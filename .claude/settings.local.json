@@ -4,7 +4,8 @@
       "Bash(npm run:*)",
       "Bash(npm uninstall:*)",
       "Bash(ls .env*)",
-      "WebFetch(domain:apimo.net)"
+      "WebFetch(domain:apimo.net)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

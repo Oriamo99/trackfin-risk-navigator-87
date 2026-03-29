@@ -3,6 +3,18 @@
 // Last update: February 2025 (GAFI plenary).
 // Source: https://www.fatf-gafi.org/fr/countries/liste-noire-et-liste-gris.html
 
+/** Date of last GAFI list update (set manually after each plenary) */
+export const GAFI_LAST_UPDATE = '2025-02-01';
+
+/** Returns true if GAFI lists are potentially outdated (>6 months old) */
+export function isGafiListOutdated(): boolean {
+  const lastUpdate = new Date(GAFI_LAST_UPDATE);
+  const now = new Date();
+  const diffMs = now.getTime() - lastUpdate.getTime();
+  const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
+  return diffMs > sixMonthsMs;
+}
+
 export type GafiListType = 'black' | 'grey' | 'none';
 
 export interface GafiCheckResult {

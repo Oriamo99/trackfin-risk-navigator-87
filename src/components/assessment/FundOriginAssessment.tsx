@@ -11,14 +11,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Coins, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { OfficialVerificationLinks } from "@/components/verification/OfficialVerificationLinks";
 import { RiskAssessmentTable } from "@/components/assessment/RiskAssessmentTable";
+import { FundsDocumentChecklist } from "@/components/documents/FundsDocumentChecklist";
 import { fundOriginQuestions } from "@/config/risk-questions";
 import { calculateScore, getRiskLevel } from "@/config/risk-scoring";
 import { fundDataSchema } from "@/config/validation-schemas";
 import type { FundDataFormData } from "@/config/validation-schemas";
-import { defaultFundRiskChecks } from "@/types";
-import type { FundData } from "@/types";
+import { defaultFundRiskChecks, DEFAULT_FUNDS_DOCUMENT_CHECKS } from "@/types";
+import type { FundData, FundsDocumentChecks } from "@/types";
 
 interface FundOriginAssessmentProps {
   onScoreUpdate: (score: number, level: string) => void;
@@ -57,6 +57,7 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
     lenderBank: '',
   });
 
+  const [fundsDocChecks, setFundsDocChecks] = useLocalStorage<FundsDocumentChecks>('fundsDocumentChecks', { ...DEFAULT_FUNDS_DOCUMENT_CHECKS });
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const { register, formState: { errors }, setValue, watch, reset } = useForm<FundDataFormData>({
@@ -123,6 +124,11 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   return (
     <TooltipProvider>
       <div className="space-y-6">
+        <FundsDocumentChecklist
+          checklist={fundsDocChecks}
+          onChange={setFundsDocChecks}
+        />
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -284,8 +290,6 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
             </div>
           </CardContent>
         </Card>
-
-        <OfficialVerificationLinks idPrefix="fund" />
 
         <RiskAssessmentTable
           questions={fundOriginQuestions}

@@ -28,6 +28,7 @@ const STORAGE_KEYS = [
   'tracfinGlobalData',
   'fundOriginChecks',
   'fundData',
+  'fundsDocumentChecks',
   'riskSummaryDocumentInfo',
 ] as const;
 

@@ -159,25 +159,6 @@ export const PersonForm = ({
                 <Input id={`${p}-email`} type="email" {...physField('email')} value={data.physicalPerson.email} placeholder="Adresse email" />
                 <FieldError message={pe.email?.message} />
               </div>
-              <div>
-                <Label htmlFor={`${p}-idDocument`}>Type de pièce d'identité</Label>
-                <Select
-                  value={data.physicalPerson.idDocument}
-                  onValueChange={(value) => { physForm.setValue('idDocument', value); onInputChange('physicalPerson', 'idDocument', value); }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez le type de pièce d'identité" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cni">Carte d'identité</SelectItem>
-                    <SelectItem value="passeport">Passeport</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor={`${p}-idNumber`}>Numéro de pièce d'identité</Label>
-                <Input id={`${p}-idNumber`} {...physField('idNumber')} value={data.physicalPerson.idNumber} placeholder="Numéro de la pièce d'identité" />
-              </div>
               {showAcquirerFields && (
                 <>
                   <div>
