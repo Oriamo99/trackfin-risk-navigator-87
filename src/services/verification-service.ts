@@ -48,6 +48,21 @@ function computeAutoFlags(
   return flags;
 }
 
+/**
+ * Compute auto-flags from OCR document analysis results.
+ * Depends on party data (documentChecks), not API results.
+ */
+export function computeOcrAutoFlags(party: Party): Record<string, boolean> {
+  const flags: Record<string, boolean> = {};
+
+  // identityVerified: true if OCR successfully detected a CNI or passport
+  if (party.documentChecks.pieceIdentite) {
+    flags.identityVerified = true;
+  }
+
+  return flags;
+}
+
 // ─── Main orchestrator ───────────────────────────────────────────────────────
 
 export async function runVerifications(

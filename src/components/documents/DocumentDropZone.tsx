@@ -26,6 +26,10 @@ export const DocumentDropZone = ({ party, onFieldsExtracted }: DocumentDropZoneP
   const callbackRef = useRef(onFieldsExtracted);
   callbackRef.current = onFieldsExtracted;
 
+  const removeResult = useCallback((index: number) => {
+    setResults(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
       toast.error('Fichier trop volumineux (max 10 Mo)');
@@ -35,7 +39,15 @@ export const DocumentDropZone = ({ party, onFieldsExtracted }: DocumentDropZoneP
     setAnalyzing(true);
     try {
       const extraction = await analyzeDocument(file);
-      setResults(prev => [extraction, ...prev]);
+      setResults(prev => {
+        const existingIndex = prev.findIndex(r => r.fileName === extraction.fileName);
+        if (existingIndex !== -1) {
+          const updated = [...prev];
+          updated[existingIndex] = extraction;
+          return updated;
+        }
+        return [extraction, ...prev];
+      });
 
       if (!extraction.success) {
         toast.error(extraction.errorMessage ?? "Erreur lors de l'analyse du document");
@@ -179,7 +191,7 @@ export const DocumentDropZone = ({ party, onFieldsExtracted }: DocumentDropZoneP
             {results.length > 0 && (
               <div className="space-y-2">
                 {results.map((r, i) => (
-                  <ExtractionResult key={`${r.fileName}-${i}`} extraction={r} />
+                  <ExtractionResult key={`${r.fileName}-${i}`} extraction={r} onRemove={() => removeResult(i)} />
                 ))}
               </div>
             )}

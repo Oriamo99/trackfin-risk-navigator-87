@@ -7,7 +7,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Building, Save, Plus, Trash2, AlertTriangle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
+import { Users, Building, Save, Plus, Trash2, AlertTriangle, AlertCircle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { PersonForm } from "@/components/forms/PersonForm";
 import { OfficialVerificationLinks } from "@/components/verification/OfficialVerificationLinks";
@@ -16,7 +16,8 @@ import { RiskAssessmentTable } from "@/components/assessment/RiskAssessmentTable
 import { DocumentDropZone } from "@/components/documents/DocumentDropZone";
 import { partyQuestions } from "@/config/risk-questions";
 import { calculateScore, getRiskLevel } from "@/config/risk-scoring";
-import { useGlobalData } from "@/hooks/useGlobalData";
+import { computeOcrAutoFlags } from "@/services/verification-service";
+import { useGlobalDataContext } from "@/contexts/GlobalDataContext";
 import { useVerification } from "@/hooks/useVerification";
 import type { Party, PartyScoring } from "@/types";
 
@@ -45,7 +46,7 @@ const sideConfig = {
     saveMessage: 'Données des acquéreurs sauvegardées avec succès !',
     saveLabel: 'Sauvegarder les données acquéreurs',
     singularLabel: 'Acquéreur',
-    addLabel: '+ Ajouter un acquéreur',
+    addLabel: 'Ajouter un acquéreur',
     showAcquirerFields: true,
   },
 } as const;
@@ -84,18 +85,28 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
   const cfg = sideConfig[partyType];
   const Icon = cfg.icon;
 
-  const { globalData, addParty, removeParty, updateParty } = useGlobalData();
+  const { globalData, addParty, removeParty, updateParty } = useGlobalDataContext();
   const parties = globalData[partyType].parties;
 
   const [selectedPartyId, setSelectedPartyId] = useState(parties[0]?.id ?? '');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
 
-  // Keep selectedPartyId valid
+  // Keep selectedPartyId valid: select last on add, first on delete
+  const prevLengthRef = useRef(parties.length);
+
   useEffect(() => {
-    if (!parties.find(p => p.id === selectedPartyId) && parties.length > 0) {
+    if (parties.length === 0) return;
+
+    if (parties.length > prevLengthRef.current) {
+      // A party was added → select the last one
+      setSelectedPartyId(parties[parties.length - 1].id);
+    } else if (!parties.find(p => p.id === selectedPartyId)) {
+      // Selected party was removed → select the first one
       setSelectedPartyId(parties[0].id);
     }
+
+    prevLengthRef.current = parties.length;
   }, [parties, selectedPartyId]);
 
   // ─── Scoring ─────────────────────────────────────────────────────────
@@ -125,30 +136,53 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
   const selectedParty = parties.find(p => p.id === selectedPartyId);
   const selectedScoring = partyScorings.find(s => s.partyId === selectedPartyId);
 
+  const allVerificationsComplete = useMemo(() => {
+    return parties.every(p => p.verificationResult?.completedAt != null);
+  }, [parties]);
+
   // ─── Automated verifications ────────────────────────────────────────
 
   const { result: verificationResult, loading: verificationLoading, recheck, ppeDeclaration, setPpeDeclaration } = useVerification(selectedParty);
 
-  // Auto-apply flags to risk checks when verification completes
+  // Auto-apply flags to risk checks (verification + OCR merged)
   const prevAutoFlagsRef = useRef<string>('');
   useEffect(() => {
     if (!selectedParty) return;
-    const flagsJson = JSON.stringify(verificationResult.autoFlags);
-    if (flagsJson === prevAutoFlagsRef.current || !verificationResult.completedAt) return;
+
+    const ocrFlags = computeOcrAutoFlags(selectedParty);
+    const allAutoFlags = { ...verificationResult.autoFlags, ...ocrFlags };
+
+    const flagsJson = JSON.stringify(allAutoFlags);
+    if (flagsJson === prevAutoFlagsRef.current) return;
+    if (!verificationResult.completedAt && Object.keys(ocrFlags).length === 0) return;
     prevAutoFlagsRef.current = flagsJson;
 
-    for (const [questionId, flagValue] of Object.entries(verificationResult.autoFlags)) {
-      if (selectedParty.riskChecks[questionId] !== flagValue) {
-        updateParty(partyType, selectedPartyId, {
-          riskChecks: { ...selectedParty.riskChecks, [questionId]: flagValue },
-        });
+    const updatedChecks = { ...selectedParty.riskChecks };
+    let changed = false;
+
+    for (const [questionId, flagValue] of Object.entries(allAutoFlags)) {
+      if (updatedChecks[questionId] !== flagValue) {
+        updatedChecks[questionId] = flagValue;
+        changed = true;
       }
     }
 
-    updateParty(partyType, selectedPartyId, {
-      verificationResult: verificationResult,
-    });
+    if (changed) {
+      updateParty(partyType, selectedPartyId, { riskChecks: updatedChecks });
+    }
+
+    if (verificationResult.completedAt) {
+      updateParty(partyType, selectedPartyId, { verificationResult });
+    }
   }, [verificationResult, selectedParty, partyType, selectedPartyId, updateParty]);
+
+  const combinedAutoFlags = useMemo(() => {
+    if (!selectedParty) return {};
+    const ocrFlags = computeOcrAutoFlags(selectedParty);
+    return { ...verificationResult.autoFlags, ...ocrFlags };
+  }, [selectedParty, verificationResult.autoFlags]);
+
+  const autoFilledCount = useMemo(() => Object.keys(combinedAutoFlags).length, [combinedAutoFlags]);
 
   // ─── OCR merge callback ─────────────────────────────────────────────
 
@@ -163,16 +197,6 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
 
   const handleAddParty = () => {
     addParty(partyType);
-    setTimeout(() => {
-      const stored = window.localStorage.getItem('tracfinGlobalData');
-      if (stored) {
-        const data = JSON.parse(stored);
-        const newParties = data[partyType]?.parties;
-        if (newParties?.length > 0) {
-          setSelectedPartyId(newParties[newParties.length - 1].id);
-        }
-      }
-    }, 0);
   };
 
   const handleConfirmDelete = () => {
@@ -283,12 +307,32 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
                 <span className="font-bold">{maxScore}/20</span>
                 <RiskBadge level={maxLevel} />
                 <span className="text-gray-400">
-                  — basé sur le risque le plus élevé parmi {parties.length === 1 ? `1 ${cfg.singularLabel.toLowerCase()}` : `les ${parties.length} ${cfg.riskTitle.toLowerCase()}`}
+                  basé sur le risque le plus élevé parmi {parties.length === 1 ? `1 ${cfg.singularLabel.toLowerCase()}` : `les ${parties.length} ${cfg.riskTitle.toLowerCase()}`}
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Risk profile indicator */}
+        {maxLevel === 'Faible' && allVerificationsComplete && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
+            <CheckCircle className="h-4 w-4" />
+            <span>Profil de risque probable : <strong>Faible</strong> — basé sur les vérifications automatiques</span>
+          </div>
+        )}
+        {maxLevel === 'Modéré' && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Profil de risque probable : <strong>Modéré</strong> — vérifiez les critères de risque</span>
+          </div>
+        )}
+        {maxLevel === 'Élevé' && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+            <XCircle className="h-4 w-4" />
+            <span>Profil de risque probable : <strong>Élevé</strong> — vigilance renforcée requise</span>
+          </div>
+        )}
 
         {/* Selected party form */}
         <Card>
@@ -336,15 +380,43 @@ const PartyAssessment = ({ partyType, onScoreUpdate }: PartyAssessmentProps) => 
           </CollapsibleContent>
         </Collapsible>
 
-        <RiskAssessmentTable
-          questions={partyQuestions}
-          checks={selectedParty.riskChecks}
-          onCheckChange={handleCheck}
-          score={selectedScoring?.score ?? 0}
-          riskLevel={selectedScoring?.level ?? 'Faible'}
-          title={`${cfg.singularLabel} ${parties.findIndex(p => p.id === selectedPartyId) + 1} — ${getPartyLabel(selectedParty)}`}
-          autoFlags={verificationResult.autoFlags}
-        />
+        <Collapsible>
+          <div className="rounded-lg border bg-white p-4">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between text-left">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <span className="font-medium">
+                      Évaluation des risques — {getPartyLabel(selectedParty)}
+                    </span>
+                    <p className="text-sm text-gray-500">
+                      {autoFilledCount > 0
+                        ? `${autoFilledCount} critère(s) pré-rempli(s) automatiquement`
+                        : 'Aucun critère pré-rempli — évaluation manuelle requise'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold">{selectedScoring?.score ?? 0}/20</span>
+                  <RiskBadge level={selectedScoring?.level ?? 'Faible'} />
+                  <ChevronDown className="h-4 w-4 text-gray-400 transition-transform [[data-state=open]_&]:rotate-180" />
+                </div>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              <RiskAssessmentTable
+                questions={partyQuestions}
+                checks={selectedParty.riskChecks}
+                onCheckChange={handleCheck}
+                score={selectedScoring?.score ?? 0}
+                riskLevel={selectedScoring?.level ?? 'Faible'}
+                title={`${cfg.singularLabel} ${parties.findIndex(p => p.id === selectedPartyId) + 1} — ${getPartyLabel(selectedParty)}`}
+                autoFlags={combinedAutoFlags}
+              />
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         <div className="text-center">
           <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">

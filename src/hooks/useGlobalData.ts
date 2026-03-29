@@ -4,6 +4,7 @@ import {
   defaultGlobalAppData,
   emptyDocumentInfo,
   defaultFundRiskChecks,
+  DEFAULT_FUNDS_DOCUMENT_CHECKS,
   createEmptyParty,
   emptyPhysicalPerson,
   emptyLegalEntity,
@@ -16,6 +17,7 @@ import type {
   TransactionInfo,
   AppSnapshot,
   FundData,
+  FundsDocumentChecks,
   DocumentInfo,
   Party,
   PartyData,
@@ -196,6 +198,7 @@ export const useGlobalData = () => {
         lenderBank: '',
       }),
       checks: readKey<Record<string, boolean>>('fundOriginChecks', { ...defaultFundRiskChecks }),
+      documentChecks: readKey<FundsDocumentChecks>('fundsDocumentChecks', { ...DEFAULT_FUNDS_DOCUMENT_CHECKS }),
     },
     documentInfo: readKey<DocumentInfo>('riskSummaryDocumentInfo', { ...emptyDocumentInfo }),
   }), []);

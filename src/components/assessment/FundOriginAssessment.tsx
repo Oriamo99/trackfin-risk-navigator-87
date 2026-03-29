@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Coins, Save } from "lucide-react";
+import { Coins, Save, AlertCircle, AlertTriangle, CheckCircle, XCircle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RiskAssessmentTable } from "@/components/assessment/RiskAssessmentTable";
@@ -44,6 +45,19 @@ const fundOrigins = [
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-sm text-red-500 mt-1">{message}</p> : null;
 
+const RiskBadge = ({ level }: { level: string }) => {
+  const cls = level === 'Faible' ? 'bg-green-100 text-green-800'
+    : level === 'Modéré' ? 'bg-yellow-100 text-yellow-800'
+    : 'bg-red-100 text-red-800';
+  const Icon = level === 'Faible' ? CheckCircle : level === 'Modéré' ? AlertTriangle : XCircle;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      <Icon className="h-3 w-3" />
+      {level}
+    </span>
+  );
+};
+
 const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   const [checks, setChecks] = useLocalStorage<Record<string, boolean>>('fundOriginChecks', { ...defaultFundRiskChecks });
   const [fundData, setFundData] = useLocalStorage<FundData>('fundData', {
@@ -58,7 +72,6 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   });
 
   const [fundsDocChecks, setFundsDocChecks] = useLocalStorage<FundsDocumentChecks>('fundsDocumentChecks', { ...DEFAULT_FUNDS_DOCUMENT_CHECKS });
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const { register, formState: { errors }, setValue, watch, reset } = useForm<FundDataFormData>({
     resolver: zodResolver(fundDataSchema),
@@ -71,6 +84,46 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
   useEffect(() => {
     reset(fundData, { keepErrors: true, keepDirty: true, keepTouched: true });
   }, [fundData, reset]);
+
+  // Fund pre-checking: auto-flag based on fund data
+  const [autoFlags, setAutoFlags] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const newFlags: Record<string, boolean> = {};
+
+    // legitimateSource: true if fund origin is identified
+    const hasLegitimateSource =
+      (fundData.bankLoan === 'oui' && fundData.lenderBank.trim() !== '') ||
+      (fundData.originDescription !== '' && fundData.originDescription !== 'autre');
+
+    if (hasLegitimateSource) {
+      newFlags.legitimateSource = true;
+    }
+
+    // cashTransaction: true if payment method is cash
+    if (fundData.paymentMethod === 'especes') {
+      newFlags.cashTransaction = true;
+    }
+
+    setAutoFlags(newFlags);
+
+    // Apply flags to checks
+    const updatedChecks = { ...checks };
+    let changed = false;
+
+    for (const [questionId, flagValue] of Object.entries(newFlags)) {
+      if (updatedChecks[questionId] !== flagValue) {
+        updatedChecks[questionId] = flagValue;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setChecks(updatedChecks);
+    }
+  }, [fundData.bankLoan, fundData.lenderBank, fundData.originDescription, fundData.paymentMethod]);
+
+  const autoFilledCount = useMemo(() => Object.keys(autoFlags).length, [autoFlags]);
 
   const score = calculateScore(checks, fundOriginQuestions);
   const riskLevel = getRiskLevel(score);
@@ -106,15 +159,6 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
         handleInputChange(field, e.target.value);
       },
     };
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setUploadedFiles(prev => [...prev, ...files]);
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = () => {
@@ -257,48 +301,67 @@ const FundOriginAssessment = ({ onScoreUpdate }: FundOriginAssessmentProps) => {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="fileUpload">Documents joints</Label>
-                <div className="mt-2">
-                  <Input
-                    id="fileUpload"
-                    type="file"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="mb-2"
-                  />
-                  {uploadedFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Fichiers téléchargés :</h4>
-                      {uploadedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
-                          <div className="flex-1">
-                            <span className="text-sm font-medium">{file.name}</span>
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({Math.round(file.size / 1024)} KB)
-                            </span>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => removeFile(index)}>
-                            Supprimer
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
 
-        <RiskAssessmentTable
-          questions={fundOriginQuestions}
-          checks={checks}
-          onCheckChange={handleCheck}
-          score={score}
-          riskLevel={riskLevel}
-          title="Provenance des Fonds"
-        />
+        {/* Risk profile indicator */}
+        {riskLevel === 'Faible' && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
+            <CheckCircle className="h-4 w-4" />
+            <span>Profil de risque probable : <strong>Faible</strong> — basé sur les données saisies</span>
+          </div>
+        )}
+        {riskLevel === 'Modéré' && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Profil de risque probable : <strong>Modéré</strong> — vérifiez les critères de risque</span>
+          </div>
+        )}
+        {riskLevel === 'Élevé' && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+            <XCircle className="h-4 w-4" />
+            <span>Profil de risque probable : <strong>Élevé</strong> — vigilance renforcée requise</span>
+          </div>
+        )}
+
+        <Collapsible>
+          <div className="rounded-lg border p-4">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between text-left">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <span className="font-medium">
+                      Évaluation des risques — Provenance des fonds
+                    </span>
+                    <p className="text-sm text-gray-500">
+                      {autoFilledCount > 0
+                        ? `${autoFilledCount} critère(s) pré-rempli(s) automatiquement`
+                        : 'Aucun critère pré-rempli — évaluation manuelle requise'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold">{score}/20</span>
+                  <RiskBadge level={riskLevel} />
+                  <ChevronDown className="h-4 w-4 text-gray-400 transition-transform [[data-state=open]_&]:rotate-180" />
+                </div>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              <RiskAssessmentTable
+                questions={fundOriginQuestions}
+                checks={checks}
+                onCheckChange={handleCheck}
+                score={score}
+                riskLevel={riskLevel}
+                title="Provenance des Fonds"
+                autoFlags={autoFlags}
+              />
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         <div className="text-center">
           <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">

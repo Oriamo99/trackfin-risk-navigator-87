@@ -1,19 +1,24 @@
-import { useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Download, Save } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle, Users, Building, Coins, FileText, Save, Zap } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useGlobalData } from "@/hooks/useGlobalData";
-import { generatePDF } from "@/lib/pdf-export";
+import { useGlobalDataContext } from "@/contexts/GlobalDataContext";
+import { PdfPreviewModal } from "@/components/assessment/PdfPreviewModal";
+import { PartyRiskOverview } from "@/components/assessment/PartyRiskOverview";
 import { documentInfoSchema } from "@/config/validation-schemas";
 import type { DocumentInfoFormData } from "@/config/validation-schemas";
-import type { Assessment, DocumentInfo } from "@/types";
+import { partyQuestions } from "@/config/risk-questions";
+import { calculateScore, getRiskLevel } from "@/config/risk-scoring";
+import type { Assessment, DocumentInfo, AppSnapshot, PartyScoring } from "@/types";
 import { emptyDocumentInfo } from "@/types";
 
 function pluralize(count: number, singular: string): string {
@@ -28,13 +33,19 @@ interface RiskSummaryProps {
   };
   totalScore: number;
   overallRisk: string;
+  apimoPropertyId: number | null;
+  onNavigateToTab: (tab: string) => void;
+  onApimoUploadSuccess: () => void;
+  onResetRequest: () => void;
 }
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-sm text-red-500 mt-1">{message}</p> : null;
 
-const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps) => {
-  const { globalData, updateSummaryData, exportAllData } = useGlobalData();
+const RiskSummary = ({ assessments, totalScore, overallRisk, apimoPropertyId, onNavigateToTab, onApimoUploadSuccess, onResetRequest }: RiskSummaryProps) => {
+  const { globalData, updateSummaryData, exportAllData } = useGlobalDataContext();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [pdfSnapshot, setPdfSnapshot] = useState<AppSnapshot | null>(null);
   const vendorCount = globalData.vendor.parties.length;
   const acquirerCount = globalData.acquirer.parties.length;
   const [documentInfo, setDocumentInfo] = useLocalStorage<DocumentInfo>(
@@ -44,6 +55,46 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
       date: new Date().toISOString().split('T')[0],
     }
   );
+
+  const vendorScorings: PartyScoring[] = useMemo(() =>
+    globalData.vendor.parties.map(party => {
+      const score = calculateScore(party.riskChecks, partyQuestions);
+      return { partyId: party.id, score, level: getRiskLevel(score) };
+    }), [globalData.vendor.parties]);
+
+  const acquirerScorings: PartyScoring[] = useMemo(() =>
+    globalData.acquirer.parties.map(party => {
+      const score = calculateScore(party.riskChecks, partyQuestions);
+      return { partyId: party.id, score, level: getRiskLevel(score) };
+    }), [globalData.acquirer.parties]);
+
+  const fastModeAvailable = useMemo(() => {
+    const allPartiesVerified = [
+      ...globalData.vendor.parties,
+      ...globalData.acquirer.parties,
+    ].every(p => {
+      const vr = p.verificationResult;
+      if (!vr?.completedAt) return false;
+      if (vr.sanctions.status === 'hit') return false;
+      if (vr.gafi.listType === 'black' || vr.gafi.listType === 'grey') return false;
+      if (vr.ppe.status === 'declared') return false;
+      return true;
+    });
+
+    return allPartiesVerified && totalScore <= 5;
+  }, [globalData.vendor.parties, globalData.acquirer.parties, totalScore]);
+
+  const handleFastValidation = () => {
+    if (!documentInfo.date) {
+      setDocumentInfo(prev => ({
+        ...prev,
+        date: new Date().toISOString().split('T')[0],
+      }));
+    }
+
+    toast.success("Évaluation validée — vous pouvez prévisualiser le PDF");
+    document.getElementById('finalization-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const { register, formState: { errors }, trigger, reset } = useForm<DocumentInfoFormData>({
     resolver: zodResolver(documentInfoSchema),
@@ -101,24 +152,21 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
     toast.success("Enregistrement final effectué avec succès ! Toutes les données ont été sauvegardées.");
   };
 
-  const handleExportPDF = async () => {
+  const handlePreviewPDF = async () => {
     const valid = await trigger();
     if (!valid) {
-      toast.error("Veuillez remplir tous les champs obligatoires avant d'exporter");
+      toast.error("Veuillez remplir tous les champs obligatoires avant de prévisualiser");
       return;
     }
-    try {
-      const snapshot = exportAllData();
-      snapshot.global.summary.assessments = assessments;
-      snapshot.global.summary.totalScore = totalScore;
-      snapshot.global.summary.overallRisk = overallRisk;
-      snapshot.documentInfo = documentInfo;
-      generatePDF(snapshot);
-      toast.success("PDF exporté avec succès !");
-    } catch (error) {
-      console.error("Erreur export PDF:", error);
-      toast.error("Erreur lors de l'export PDF. Veuillez réessayer.");
-    }
+
+    const snapshot = exportAllData();
+    snapshot.global.summary.assessments = assessments;
+    snapshot.global.summary.totalScore = totalScore;
+    snapshot.global.summary.overallRisk = overallRisk;
+    snapshot.documentInfo = documentInfo;
+
+    setPdfSnapshot(snapshot);
+    setPreviewOpen(true);
   };
 
   return (
@@ -216,7 +264,64 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
         </CardContent>
       </Card>
 
+      {/* Per-party risk detail */}
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Détail des risques par partie
+          </CardTitle>
+          <CardDescription>
+            Cliquez sur "Modifier" pour ajuster les critères de risque d'une partie
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PartyRiskOverview
+            parties={globalData.vendor.parties}
+            scorings={vendorScorings}
+            sideLabel="Vendeur"
+            tabValue="vendor"
+            onNavigateToTab={onNavigateToTab}
+          />
+          <Separator className="my-4" />
+          <PartyRiskOverview
+            parties={globalData.acquirer.parties}
+            scorings={acquirerScorings}
+            sideLabel="Acquéreur"
+            tabValue="acquirer"
+            onNavigateToTab={onNavigateToTab}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Fast validation mode */}
+      {fastModeAvailable && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+                <div>
+                  <p className="font-medium text-green-800">Validation rapide disponible</p>
+                  <p className="text-sm text-green-700">
+                    Toutes les vérifications sont conformes. Vous pouvez valider l'évaluation
+                    et passer directement à la prévisualisation du PDF.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleFastValidation}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Validation rapide
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card id="finalization-section">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -299,11 +404,34 @@ const RiskSummary = ({ assessments, totalScore, overallRisk }: RiskSummaryProps)
           <Save className="h-4 w-4 mr-2" />
           Enregistrement final
         </Button>
-        <Button onClick={handleExportPDF} className="bg-red-600 hover:bg-red-700">
-          <Download className="h-4 w-4 mr-2" />
-          Exporter PDF
+        <Button onClick={handlePreviewPDF} className="bg-blue-600 hover:bg-blue-700">
+          <FileText className="h-4 w-4 mr-2" />
+          Prévisualiser le PDF
         </Button>
       </div>
+
+      <div className="text-center mt-6">
+        <Button
+          variant="ghost"
+          className="text-gray-500"
+          onClick={onResetRequest}
+        >
+          Réinitialiser et commencer un nouveau dossier
+        </Button>
+      </div>
+
+      {pdfSnapshot && (
+        <PdfPreviewModal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          snapshot={pdfSnapshot}
+          apimoPropertyId={apimoPropertyId}
+          onApimoUploadSuccess={() => {
+            setPreviewOpen(false);
+            onApimoUploadSuccess();
+          }}
+        />
+      )}
     </div>
   );
 };

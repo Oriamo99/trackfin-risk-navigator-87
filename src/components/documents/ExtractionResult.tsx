@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_COLORS } from '@/config/ocr-prompts';
 import type { OcrExtraction } from '@/services/document-ocr';
 
 interface ExtractionResultProps {
   extraction: OcrExtraction;
+  onRemove?: () => void;
 }
 
 // Field labels for display
@@ -49,7 +50,7 @@ function truncateFileName(name: string, maxLen = 30): string {
   return name.slice(0, maxLen - 3) + '...';
 }
 
-export const ExtractionResult = ({ extraction }: ExtractionResultProps) => {
+export const ExtractionResult = ({ extraction, onRemove }: ExtractionResultProps) => {
   const [expanded, setExpanded] = useState(false);
 
   const fields = Object.entries(extraction.fields).filter(
@@ -66,6 +67,15 @@ export const ExtractionResult = ({ extraction }: ExtractionResultProps) => {
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 border border-red-200">
             Erreur
           </span>
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              className="ml-auto shrink-0 p-0.5 rounded hover:bg-red-200 transition-colors"
+              title="Retirer"
+            >
+              <X className="h-3.5 w-3.5 text-red-600" />
+            </button>
+          )}
         </div>
         <p className="text-red-700 text-xs mt-1">{extraction.errorMessage}</p>
         <p className="text-gray-500 text-xs mt-1">Les champs peuvent être remplis manuellement ci-dessous</p>
@@ -94,6 +104,15 @@ export const ExtractionResult = ({ extraction }: ExtractionResultProps) => {
         <span className="text-xs text-green-700 ml-auto mr-1">
           {filledCount} champ(s)
         </span>
+        {onRemove && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="shrink-0 p-0.5 rounded hover:bg-green-200 transition-colors"
+            title="Retirer"
+          >
+            <X className="h-3.5 w-3.5 text-green-600" />
+          </button>
+        )}
         {expanded
           ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
           : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}

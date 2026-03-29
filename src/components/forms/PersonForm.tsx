@@ -176,16 +176,14 @@ export const PersonForm = ({
               <Label htmlFor={`${p}-address`}>Adresse complète</Label>
               <Textarea id={`${p}-address`} {...physField('address')} value={data.physicalPerson.address} placeholder="Adresse complète" />
             </div>
-            <div className={`grid grid-cols-1 ${showAcquirerFields ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
-              {showAcquirerFields && (
-                <CountrySelect
-                  id={`${p}-country`}
-                  label="Pays"
-                  value={data.physicalPerson.country}
-                  onChange={(value) => { physForm.setValue('country', value); onInputChange('physicalPerson', 'country', value); }}
-                  placeholder="Commencez à taper pour voir les suggestions..."
-                />
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CountrySelect
+                id={`${p}-country`}
+                label="Pays"
+                value={data.physicalPerson.country}
+                onChange={(value) => { physForm.setValue('country', value); onInputChange('physicalPerson', 'country', value); }}
+                placeholder="Commencez à taper pour voir les suggestions..."
+              />
               <div>
                 <Label htmlFor={`${p}-city`}>Ville</Label>
                 <Input id={`${p}-city`} {...physField('city')} value={data.physicalPerson.city} placeholder="Ville" />
@@ -249,16 +247,14 @@ export const PersonForm = ({
               <Label htmlFor={`${p}-companyAddress`}>Adresse du siège social</Label>
               <Textarea id={`${p}-companyAddress`} {...legalField('address')} value={data.legalEntity.address} placeholder="Adresse complète du siège social" />
             </div>
-            <div className={`grid grid-cols-1 ${showAcquirerFields ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
-              {showAcquirerFields && (
-                <CountrySelect
-                  id={`${p}-companyCountry`}
-                  label="Pays"
-                  value={data.legalEntity.country}
-                  onChange={(value) => { legalForm.setValue('country', value); onInputChange('legalEntity', 'country', value); }}
-                  placeholder="Commencez à taper pour voir les suggestions..."
-                />
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CountrySelect
+                id={`${p}-companyCountry`}
+                label="Pays"
+                value={data.legalEntity.country}
+                onChange={(value) => { legalForm.setValue('country', value); onInputChange('legalEntity', 'country', value); }}
+                placeholder="Commencez à taper pour voir les suggestions..."
+              />
               <div>
                 <Label htmlFor={`${p}-companyCity`}>Ville</Label>
                 <Input id={`${p}-companyCity`} {...legalField('city')} value={data.legalEntity.city} placeholder="Ville" />

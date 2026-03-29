@@ -29,7 +29,7 @@ npm run lint        # Run ESLint
 
 ## Current Architecture
 
-Prompts 1–8 completed: cleanup, restructure, component refactoring, data layer, validation, multi-party support, Apimo integration, automated verifications. Prompts 9–11 pending.
+Prompts 1–10 completed: cleanup, restructure, component refactoring, data layer, validation, multi-party support, Apimo integration, automated verifications, PDF preview + upload + cleanup, risk profile detection + fast mode. Prompt 11 pending.
 
 ```
 src/
@@ -43,13 +43,14 @@ src/
 │   ├── ui/                          # shadcn/ui primitives (only used ones)
 │   ├── forms/
 │   │   ├── PersonForm.tsx           # Shared form for physical/legal person
-│   │   ├── DocumentUpload.tsx       # Reusable file upload with checkbox
 │   │   └── CountrySelect.tsx        # Country selector
 │   ├── assessment/
 │   │   ├── PartyAssessment.tsx      # Generic vendor/acquirer assessment
 │   │   ├── RiskAssessmentTable.tsx  # Risk evaluation table with RadioGroup + auto-flags
 │   │   ├── FundOriginAssessment.tsx
-│   │   └── RiskSummary.tsx
+│   │   ├── RiskSummary.tsx
+│   │   ├── PdfPreviewModal.tsx      # PDF preview in iframe + download/upload actions
+│   │   └── PartyRiskOverview.tsx   # Compact per-party risk display for Summary tab
 │   ├── verification/
 │   │   ├── VerificationPanel.tsx    # Auto checks (sanctions, GAFI, PPE) + status bar
 │   │   └── OfficialVerificationLinks.tsx  # Manual fallback links (collapsible)
@@ -94,7 +95,8 @@ src/
    a. Vendors tab: document drop zone (OCR auto-detect) + pre-filled form + auto-verifications
    b. Acquirers tab: same as vendors
    c. Funds tab: document checklist (declarative checkboxes) + risk questions
-   d. Summary tab: review + PDF generation
+   d. Summary tab: review + PDF preview
+3. PDF preview modal → Download locally / Upload to Apimo → Reset for next case
 
 If Apimo not configured → skip step 1, go directly to form
 If Mistral OCR not configured → hide drop zones, manual entry only
@@ -105,7 +107,7 @@ If Mistral OCR not configured → hide drop zones, manual entry only
 - **API**: `https://api.apimo.pro` — REST, JSON, HTTP Basic Auth (`provider_id:token`)
 - **Credentials**: env vars only (`VITE_APIMO_*` in `.env.local`). No sessionStorage, no setup screen.
 - **CORS**: Vite dev proxy at `/apimo-api` → `api.apimo.pro`. Production needs a backend proxy (`VITE_APIMO_PROXY_URL`).
-- **Endpoints used**: `/agencies/{id}/properties` (list, filter `step=1`), `/agencies/{id}/properties/{id}` (detail), `/agencies/{id}/contacts/{id}` (single contact), `/agencies/{id}/properties/{id}/documents` (upload PDF)
+- **Endpoints used**: `/agencies/{id}/properties` (list, filter `step=1`), `/agencies/{id}/properties/{id}` (detail), `/agencies/{id}/contacts/{id}` (single contact), `/agencies/{id}/properties/{id}/documents` (POST multipart/form-data — upload PDF)
 - **Apimo referentials**: `category` = transaction type (1=Vente, 2=Location, etc.), `type` = property type (1=Appartement, 2=Maison, etc.). Contact `category`: "1"=particulier, "2"=couple, "3"=société. Property `owner`/`tenant` = contact ID (string), not embedded objects.
 - **Mapper**: `apimo-mapper.ts` converts Apimo data to TRACFIN form fields. Must be fault-tolerant (optional chaining everywhere, never crash on missing fields).
 
@@ -113,7 +115,7 @@ If Mistral OCR not configured → hide drop zones, manual entry only
 
 Three mandatory LCB-FT checks per party:
 
-1. **DG Trésor sanctions** — Public API at `https://gels-avoirs.dgtresor.gouv.fr/ApiPublic/api/v1/publication/derniere-publication-flux-json`. No auth required. Full registry downloaded once and cached in memory (module-level variable, NOT localStorage). Matching by normalized name (case-insensitive, accent-insensitive). CORS fallback: manual link + screenshot upload.
+1. **DG Trésor sanctions** — Public API at `https://gels-avoirs.dgtresor.gouv.fr/ApiPublic/api/v1/Registre_detail/get_registre_actif`. No auth required. Full registry downloaded once and cached in memory (module-level variable, NOT localStorage). Matching by normalized name (case-insensitive, accent-insensitive). CORS fallback: manual link + screenshot upload.
 
 2. **GAFI lists** — Static config in `gafi-lists.ts`. Black list (Iran, North Korea, Myanmar) and grey list (~22 countries). Updated manually 3× per year. Includes country aliases (e.g., "Birmanie" → "Myanmar"). Show warning if lists are >6 months old.
 
@@ -143,6 +145,15 @@ Auto-flagging: verification results pre-check corresponding risk questions in Ri
 - Stored in localStorage key `fundsDocumentChecks`
 - Checklist data included in final PDF
 
+## PDF Export & Upload [Prompt 9]
+
+- PDF is generated as a Blob via `generatePDF()`, not auto-downloaded
+- Preview modal (`PdfPreviewModal`) shows the PDF in an iframe before export
+- `downloadBlob()` utility for manual local download
+- Upload to Apimo via `apimoService.uploadDocument()` — POST `/agencies/{id}/properties/{id}/documents` (multipart/form-data)
+- Verification results (sanctions, GAFI, PPE) with timestamps included in PDF per party as compliance proof
+- Reset flow: confirmation dialog → `resetAllData()` → back to property selector (if Apimo configured)
+
 ## Scoring Rules
 
 Scores are on a 0–20 scale per category. Thresholds:
@@ -167,15 +178,25 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 | 6 | ✅ Done | Multi-vendor/acquirer support |
 | 7 | ✅ Done | Apimo integration (read + pre-fill) |
 | 8 | ✅ Done | Automated verifications (DG Trésor, GAFI, PPE) |
-| 9 | 🔲 | PDF → Apimo upload → cleanup flow |
-| 10 | 🔲 | Risk profile detection + fast mode |
+| 9 | ✅ Done | PDF preview + Apimo upload + cleanup flow |
+| 10 | ✅ Done | Risk profile detection + fast mode |
 | 11 | 🔲 | Polish, responsive, beforeunload, tests |
+
+## Risk Assessment UX [Prompt 10]
+
+- Risk questions in vendor/acquirer tabs are inside a Collapsible, closed by default
+- A compact summary banner shows the score, risk level, and auto-filled count
+- Summary tab shows a compact PartyRiskOverview per party with score + "Modifier" link
+- Auto-flagging covers: sanctions (DG Trésor), GAFI country, identity verified (OCR), legitimate source (fund data), cash transaction (payment method)
+- Subjective questions (unreliableInfo, actingForThird, atypicalOperation, knownInfractions, noClientInfo) are NEVER auto-filled — they require human judgment
+- Fast validation mode available when all verifications are clear and global score ≤ 5
+- Tabs are controlled (`value`/`onValueChange`) to allow navigation from Summary → vendor/acquirer via PartyRiskOverview "Modifier" links
 
 ## Code Conventions
 
 - `RadioGroup` from Radix for exclusive yes/no choices, never double Checkboxes.
 - All scoring logic in `src/config/risk-scoring.ts`. Components call the hook, never reimplement.
-- File uploads use `DocumentUpload` component. No inline upload logic.
+- Document uploads use `DocumentDropZone` with Mistral OCR auto-detection. No manual document type selection.
 - Country/nationality fields use the shared country list from config.
 - Format amounts with `Intl.NumberFormat('fr-FR')`.
 - Every required field has Zod validation via react-hook-form (mode: "onBlur").
@@ -184,6 +205,7 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 - No `any` types. Use proper interfaces or `unknown` with type guards.
 - All API calls wrapped in try/catch with user-friendly error messages in French.
 - External API services are singletons (class instances exported from service files).
+- Global state (tracfinGlobalData) is accessed via GlobalDataContext, never by calling useGlobalData() directly in components. Only GlobalDataProvider calls useGlobalData(). Components use useGlobalDataContext().
 
 ## Things to NEVER do
 
@@ -202,3 +224,9 @@ Display: "{score}/20" per category, "{totalScore}/60" for global.
 - Do NOT block the app if Mistral OCR is not configured or fails.
 - Do NOT overwrite non-empty fields when merging OCR results.
 - Do NOT store uploaded files in localStorage — React state only.
+- Do NOT show official verifications (DG Trésor, GAFI) in the Funds tab — verifications apply to persons only.
+- Do NOT use manual document checkboxes (DocumentUpload pattern) — use DocumentDropZone with OCR auto-detection.
+- Do NOT store File objects in React state without purpose — if files aren't persisted or exported, don't collect them.
+- Do NOT auto-fill subjective risk questions — only verifiable facts can be pre-checked.
+- Do NOT bypass PDF preview in fast mode — fast mode scrolls to signatures, it doesn't skip steps.
+- Do NOT call useGlobalData() directly in components — use useGlobalDataContext() instead. Multiple instances of useLocalStorage on the same key cause state overwrites.

@@ -5,7 +5,8 @@
       "Bash(npm uninstall:*)",
       "Bash(ls .env*)",
       "WebFetch(domain:apimo.net)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(grep -r \"ApimoSetup\\\\|DocumentUpload\\\\|saveApimoCredentials\" d:/trackfin-risk-navigator-lovable --include=*.ts --include=*.tsx)"
     ]
   }
 }

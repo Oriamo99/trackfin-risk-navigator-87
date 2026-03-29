@@ -5,13 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Shield, Users, Building, Coins, AlertTriangle, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
 import PartyAssessment from "@/components/assessment/PartyAssessment";
 import FundOriginAssessment from "@/components/assessment/FundOriginAssessment";
 import RiskSummary from "@/components/assessment/RiskSummary";
 import { PropertySelector } from "@/components/apimo/PropertySelector";
-import { useGlobalData } from "@/hooks/useGlobalData";
+import { GlobalDataProvider, useGlobalDataContext } from "@/contexts/GlobalDataContext";
 import { transactionInfoSchema } from "@/config/validation-schemas";
 import type { TransactionInfoFormData } from "@/config/validation-schemas";
 import { getGlobalRiskLevel } from "@/config/risk-scoring";
@@ -81,14 +85,22 @@ const FieldError = ({ message }: { message?: string }) =>
 
 // ─── Main page ───────────────────────────────────────────────────────────
 
-const Index = () => {
+const Index = () => (
+  <GlobalDataProvider>
+    <IndexContent />
+  </GlobalDataProvider>
+);
+
+const IndexContent = () => {
   // Determine initial mode: property selector if Apimo is configured, otherwise form
   const [appMode, setAppMode] = useState<AppMode>(() =>
     isApimoConfigured() ? 'select-property' : 'form'
   );
   const [selectedProperty, setSelectedProperty] = useState<ApimoProperty | null>(null);
 
-  const { globalData, updateTransactionInfo, updateSummaryData, setGlobalData } = useGlobalData();
+  const { globalData, updateTransactionInfo, updateSummaryData, setGlobalData, resetAllData } = useGlobalDataContext();
+  const [activeTab, setActiveTab] = useState('vendor');
+  const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
   const [assessments, setAssessments] = useState({
     vendor: { score: 0, level: 'Faible' },
     acquirer: { score: 0, level: 'Faible' },
@@ -130,6 +142,25 @@ const Index = () => {
       return newAssessments;
     });
   };
+
+  // ─── Reset handler ──────────────────────────────────────────────────
+
+  const handleReset = useCallback(() => {
+    resetAllData();
+    setSelectedProperty(null);
+    setTransactionType('');
+    setPropertyType('');
+    setAssessments({
+      vendor: { score: 0, level: 'Faible' },
+      acquirer: { score: 0, level: 'Faible' },
+      fundOrigin: { score: 0, level: 'Faible' },
+    });
+    setCleanupDialogOpen(false);
+    if (isApimoConfigured()) {
+      setAppMode('select-property');
+    }
+    toast.success("Dossier réinitialisé. Vous pouvez commencer une nouvelle évaluation.");
+  }, [resetAllData]);
 
   // ─── Apimo property selection handler ────────────────────────────────
 
@@ -324,7 +355,7 @@ const Index = () => {
         </Card>
 
         {/* Assessment Tabs */}
-        <Tabs defaultValue="vendor" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="vendor" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -361,9 +392,41 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="summary">
-            <RiskSummary assessments={assessments} totalScore={totalScore} overallRisk={overallRisk} />
+            <RiskSummary
+              assessments={assessments}
+              totalScore={totalScore}
+              overallRisk={overallRisk}
+              apimoPropertyId={selectedProperty?.id ?? null}
+              onApimoUploadSuccess={() => {
+                toast.success("PDF envoyé vers Apimo ! Vous pouvez démarrer une nouvelle évaluation.");
+                setCleanupDialogOpen(true);
+              }}
+              onNavigateToTab={setActiveTab}
+              onResetRequest={() => setCleanupDialogOpen(true)}
+            />
           </TabsContent>
         </Tabs>
+
+        {/* Cleanup confirmation dialog */}
+        <Dialog open={cleanupDialogOpen} onOpenChange={setCleanupDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Réinitialiser le dossier</DialogTitle>
+              <DialogDescription>
+                Toutes les données saisies (vendeurs, acquéreurs, fonds, vérifications) seront supprimées.
+                Assurez-vous d'avoir exporté ou envoyé le PDF avant de continuer.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCleanupDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button variant="destructive" onClick={handleReset}>
+                Réinitialiser
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

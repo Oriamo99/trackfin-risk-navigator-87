@@ -99,7 +99,7 @@ export const RiskAssessmentTable = ({
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-blue-600" />
-              <span className="font-medium">Score de risque {title.toLowerCase()}:</span>
+              <span className="font-medium">Score de risque {title} :</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-2xl font-bold">{score}/20</span>

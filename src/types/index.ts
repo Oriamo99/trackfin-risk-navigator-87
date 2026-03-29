@@ -151,6 +151,7 @@ export interface AppSnapshot {
   fund: {
     data: FundData;
     checks: Record<string, boolean>;
+    documentChecks: FundsDocumentChecks;
   };
   documentInfo: DocumentInfo;
 }

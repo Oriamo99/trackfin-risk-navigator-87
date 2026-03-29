@@ -85,6 +85,40 @@ class ApimoService {
   }
 
   /**
+   * Upload un document PDF vers un bien Apimo.
+   */
+  async uploadDocument(
+    propertyId: number,
+    fileBlob: Blob,
+    fileName: string,
+    label?: string,
+  ): Promise<void> {
+    const agencyId = this.getAgencyId();
+    const formData = new FormData();
+    formData.append('file', fileBlob, fileName);
+    formData.append('label', label ?? `Évaluation TRACFIN — ${new Date().toLocaleDateString('fr-FR')}`);
+
+    const response = await fetch(
+      `${APIMO_BASE_URL}/agencies/${agencyId}/properties/${propertyId}/documents`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': this.getAuthHeader(),
+        },
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({})) as Record<string, unknown>;
+      throw new ApimoError(
+        response.status,
+        (error.detail as string) || (error.title as string) || `Erreur upload document Apimo (${response.status})`,
+      );
+    }
+  }
+
+  /**
    * Quick connectivity test — tries to list properties.
    */
   async testConnection(): Promise<boolean> {

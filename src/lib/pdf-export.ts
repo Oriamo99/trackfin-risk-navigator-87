@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
-import type { AppSnapshot, Party } from '@/types';
+import type { AppSnapshot, Party, FundsDocumentChecks } from '@/types';
+import { PPE_CATEGORIES } from '@/config/ppe';
 import { partyQuestions, fundOriginQuestions } from '@/config/risk-questions';
 import { calculateScore, getRiskLevel } from '@/config/risk-scoring';
 
@@ -339,6 +340,80 @@ function buildSingleParty(
   });
   y = drawTable(pdf, ['Critère', 'Réponse', 'Risque'], checkRows, [95, 50, 35], y);
 
+  // ─── Vérifications automatisées ────────────────────────────────────────
+
+  if (party.verificationResult?.completedAt) {
+    y += 2;
+    y = addSectionHeader(pdf, 'Vérifications LCB-FT automatisées', y);
+
+    const vr = party.verificationResult;
+
+    // Sanctions DG Trésor
+    const sanctionsLabel =
+      vr.sanctions.status === 'clear' ? '✓ Aucune correspondance'
+      : vr.sanctions.status === 'hit' ? `✗ ${vr.sanctions.matches.length} correspondance(s) trouvée(s)`
+      : vr.sanctions.status === 'error' ? '⚠ Erreur de vérification'
+      : '— Non vérifiée';
+    y = addRow(pdf, 'Sanctions DG Trésor', sanctionsLabel, y);
+    if (vr.sanctions.checkedAt) {
+      y = addRow(pdf, 'Date vérification sanctions', new Date(vr.sanctions.checkedAt).toLocaleString('fr-FR'), y);
+    }
+
+    if (vr.sanctions.status === 'hit' && vr.sanctions.matches.length > 0) {
+      for (const match of vr.sanctions.matches.slice(0, 5)) {
+        const name = [match.lastName, match.firstName, match.entityName].filter(Boolean).join(' ');
+        y = addRow(pdf, '  Correspondance', `${name} (${match.nature})`, y);
+      }
+      if (vr.sanctions.matches.length > 5) {
+        y = addRow(pdf, '', `... et ${vr.sanctions.matches.length - 5} autre(s)`, y);
+      }
+    }
+
+    if (vr.sanctions.status === 'error') {
+      y = addRow(pdf, 'Note', `Erreur : ${vr.sanctions.errorMessage ?? 'connexion échouée'}. Vérification manuelle requise.`, y);
+    }
+
+    // GAFI
+    const gafiLabel =
+      vr.gafi.listType === 'black' ? `✗ Liste noire GAFI — ${vr.gafi.country}`
+      : vr.gafi.listType === 'grey' ? `⚠ Liste grise GAFI — ${vr.gafi.country}`
+      : vr.gafi.checkedAt ? '✓ Aucun pays à risque'
+      : '— Non vérifiée';
+    y = addRow(pdf, 'Pays à risque GAFI', gafiLabel, y);
+    if (vr.gafi.checkedAt) {
+      y = addRow(pdf, 'Date vérification GAFI', new Date(vr.gafi.checkedAt).toLocaleString('fr-FR'), y);
+    }
+
+    // PPE
+    const ppeLabel =
+      vr.ppe.status === 'declared' ? '✗ PPE déclarée'
+      : vr.ppe.checkedAt ? '✓ Non PPE'
+      : '— Non déclarée';
+    y = addRow(pdf, 'Personne Politiquement Exposée', ppeLabel, y);
+    if (vr.ppe.status === 'declared' && vr.ppe.declaration) {
+      if (vr.ppe.declaration.categoryId) {
+        const cat = PPE_CATEGORIES.find(c => c.id === vr.ppe.declaration.categoryId);
+        y = addRow(pdf, '  Catégorie PPE', cat?.label ?? vr.ppe.declaration.categoryId, y);
+      }
+      if (vr.ppe.declaration.relationship) {
+        const relLabels: Record<string, string> = {
+          direct: 'Directement PPE',
+          family: 'Membre de la famille',
+          associate: 'Personne associée',
+        };
+        y = addRow(pdf, '  Relation', relLabels[vr.ppe.declaration.relationship] ?? vr.ppe.declaration.relationship, y);
+      }
+      if (vr.ppe.declaration.details) {
+        y = addRow(pdf, '  Détails', vr.ppe.declaration.details, y);
+      }
+    }
+    if (vr.ppe.checkedAt) {
+      y = addRow(pdf, 'Date déclaration PPE', new Date(vr.ppe.checkedAt).toLocaleString('fr-FR'), y);
+    }
+
+    y += 2;
+  }
+
   // Individual score
   y += 4;
   y = ensureSpace(pdf, y, 10);
@@ -430,6 +505,31 @@ function buildFundPage(pdf: jsPDF, snapshot: AppSnapshot) {
     y = addRow(pdf, 'Documents', data.justificationDocuments, y);
   }
 
+  // Funds document checklist
+  y += 3;
+  y = addSectionHeader(pdf, 'Justificatifs de provenance des fonds', y);
+
+  const fundsDocChecks: FundsDocumentChecks = snapshot.fund.documentChecks;
+  const fundsDocItems: Array<{ key: keyof FundsDocumentChecks; label: string }> = [
+    { key: 'pretBancaire', label: 'Prêt bancaire' },
+    { key: 'acteVente', label: "Vente d'un autre bien" },
+    { key: 'epargnePersonnelle', label: 'Épargne personnelle' },
+    { key: 'donation', label: 'Donation' },
+    { key: 'succession', label: 'Succession / héritage' },
+    { key: 'fondsEtranger', label: "Fonds provenant de l'étranger" },
+    { key: 'apportSociete', label: 'Apport société' },
+    { key: 'autre', label: 'Autre source de financement' },
+  ];
+
+  for (const item of fundsDocItems) {
+    const checked = fundsDocChecks[item.key];
+    y = addRow(pdf, item.label, checked ? '✓ Fourni' : '✗ Non fourni', y);
+  }
+
+  if (fundsDocChecks.autre && fundsDocChecks.autreDetail) {
+    y = addRow(pdf, 'Détail autre source', fundsDocChecks.autreDetail, y);
+  }
+
   // Risk checks
   y += 3;
   y = addSectionHeader(pdf, 'Évaluation des risques — provenance des fonds', y);
@@ -496,7 +596,11 @@ function buildSignaturePage(pdf: jsPDF, snapshot: AppSnapshot) {
 
 // ─── Main export function ─────────────────────────────────────────────────
 
-export function generatePDF(snapshot: AppSnapshot): void {
+/**
+ * Génère le PDF TRACFIN et retourne le blob + le nom de fichier suggéré.
+ * Ne déclenche PAS de téléchargement automatique.
+ */
+export function generatePDF(snapshot: AppSnapshot): { blob: Blob; fileName: string } {
   const pdf = new jsPDF('p', 'mm', 'a4');
 
   // Page 1 — En-tête + synthèse
@@ -516,5 +620,20 @@ export function generatePDF(snapshot: AppSnapshot): void {
   buildSignaturePage(pdf, snapshot);
 
   const date = snapshot.documentInfo.date || new Date().toISOString().split('T')[0];
-  pdf.save(`TRACFIN_Evaluation_${date}.pdf`);
+  const fileName = `TRACFIN_Evaluation_${date}.pdf`;
+
+  const blob = pdf.output('blob');
+  return { blob, fileName };
+}
+
+/** Déclenche le téléchargement d'un blob dans le navigateur. */
+export function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

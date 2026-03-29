@@ -87,7 +87,31 @@ export async function analyzeDocument(file: File): Promise<OcrExtraction> {
     const body = {
       model: 'mistral-ocr-latest',
       document,
-      document_annotation_format: { type: 'json_object' },
+      document_annotation_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'document_extraction',
+          schema: {
+            type: 'object',
+            properties: {
+              detected_type: {
+                type: 'string',
+                enum: ['cni', 'passeport', 'kbis', 'justificatif_domicile', 'autre'],
+              },
+              confidence: { type: 'number' },
+              person_type: {
+                type: 'string',
+                enum: ['physical', 'legal'],
+              },
+              fields: {
+                type: 'object',
+                additionalProperties: { type: ['string', 'null'] },
+              },
+            },
+            required: ['detected_type', 'confidence', 'person_type', 'fields'],
+          },
+        },
+      },
       document_annotation_prompt: AUTO_DETECT_PROMPT,
       ...(isPdf(file) ? { pages: [0] } : {}),
     };
